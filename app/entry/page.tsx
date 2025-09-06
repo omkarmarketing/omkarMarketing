@@ -544,18 +544,6 @@ function EntryScreen() {
         <Invoice data={invoiceData} onBack={handleBackToForm} />
       ) : (
         <form onSubmit={onSubmit} className="space-y-4 max-w-4xl mx-auto">
-          <Field label="Buyer (Company Name)">
-            <input
-              type="text"
-              value={form.buyer}
-              onChange={(e) => update("buyer", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-              placeholder="Buyer Co."
-              required
-              disabled={isSubmitting}
-            />
-          </Field>
-
           <Field label="Seller (Company Name)">
             <input
               type="text"
@@ -563,6 +551,18 @@ function EntryScreen() {
               onChange={(e) => update("seller", e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-600"
               placeholder="Seller Inc."
+              required
+              disabled={isSubmitting}
+            />
+          </Field>
+
+          <Field label="Buyer (Company Name)">
+            <input
+              type="text"
+              value={form.buyer}
+              onChange={(e) => update("buyer", e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              placeholder="Buyer Co."
               required
               disabled={isSubmitting}
             />
