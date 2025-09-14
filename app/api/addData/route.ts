@@ -32,6 +32,7 @@ export async function POST(req: Request) {
     }
 
     if (!SPREADSHEET_ID) {
+      console.error("GOOGLE_SPREADSHEET_ID environment variable is not set");
       return NextResponse.json({ 
         message: "Spreadsheet ID not configured in environment variables" 
       }, { status: 500 });
@@ -82,8 +83,6 @@ export async function POST(req: Request) {
     }, { status: 500 });
   }
 }
-
-
 
 
 
