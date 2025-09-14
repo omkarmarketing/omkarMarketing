@@ -6,8 +6,8 @@ const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
 export const getGoogleAuth = async (): Promise<sheets_v4.Sheets> => {
   try {
     // Use environment variables instead of JSON file
-    const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+    const clientEmail = process.env.CLIENT_EMAIL;
+    const privateKey = process.env.PRIVATE_KEY;
 
     if (!clientEmail || !privateKey) {
       throw new Error("Google credentials not found in environment variables. Please set GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY");

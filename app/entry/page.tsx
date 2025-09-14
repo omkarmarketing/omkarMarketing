@@ -1,4 +1,4 @@
-// app/entry/page.tsx - Updated with better error handling
+// app/entry/page.tsx
 "use client";
 
 import type React from "react";
@@ -33,8 +33,6 @@ function EntryScreen() {
 
   async function saveToGoogleSheets(data: any) {
     try {
-      console.log("Sending data to Google Sheets:", data);
-
       const response = await fetch("/api/addData", {
         method: "POST",
         headers: {
@@ -43,17 +41,12 @@ function EntryScreen() {
         body: JSON.stringify(data),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        console.error("Google Sheets API error:", responseData);
-        throw new Error(
-          responseData.message || `Server error: ${response.status}`
-        );
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save data");
       }
 
-      console.log("Google Sheets save successful:", responseData);
-      return responseData;
+      return await response.json();
     } catch (error) {
       console.error("Error saving to Google Sheets:", error);
       throw error;
@@ -63,29 +56,8 @@ function EntryScreen() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Validation
     if (!form.productCode) {
       showToast("Please select a product", { variant: "error" });
-      return;
-    }
-
-    if (!form.buyer.trim()) {
-      showToast("Please enter buyer name", { variant: "error" });
-      return;
-    }
-
-    if (!form.seller.trim()) {
-      showToast("Please enter seller name", { variant: "error" });
-      return;
-    }
-
-    if (!form.quantity || parseFloat(form.quantity) <= 0) {
-      showToast("Please enter a valid quantity", { variant: "error" });
-      return;
-    }
-
-    if (!form.rate || parseFloat(form.rate) <= 0) {
-      showToast("Please enter a valid rate", { variant: "error" });
       return;
     }
 
@@ -94,37 +66,37 @@ function EntryScreen() {
     try {
       // Prepare data for Google Sheets - matching the column names in your sheet
       const sheetData = {
-        Buyer: form.buyer.trim(),
-        Seller: form.seller.trim(),
+        Buyer: form.buyer,
+        Seller: form.seller,
         Date: form.date,
         Product: form.productCode,
         Quantity: form.quantity,
         Rate: form.rate,
-        City: form.city.trim(),
-        "Brokerage Rate": form.brokerageRate || "0",
-        Remarks: form.remarks.trim(),
+        City: form.city,
+        "Brokerage Rate": form.brokerageRate,
+        Remarks: form.remarks,
       };
 
-      // Save to Google Sheets first
-      const result = await saveToGoogleSheets(sheetData);
+      // Save to Google Sheets
+      await saveToGoogleSheets(sheetData);
 
       // Create transaction data for local state
       const transactionData = {
-        buyer: form.buyer.trim(),
-        seller: form.seller.trim(),
+        buyer: form.buyer,
+        seller: form.seller,
         date: form.date,
         productCode: form.productCode,
         quantity: Number(form.quantity || 0),
         rate: Number(form.rate || 0),
-        city: form.city.trim(),
+        city: form.city,
         brokerageRate: Number(form.brokerageRate || 0),
-        remarks: form.remarks.trim(),
+        remarks: form.remarks,
       };
 
       // Also save to local state for immediate UI update
       addTransaction(transactionData);
 
-      showToast("Transaction saved to Google Sheets successfully!", {
+      showToast("Transaction saved to Google Sheets!", {
         variant: "success",
       });
 
@@ -142,25 +114,13 @@ function EntryScreen() {
       });
     } catch (error: any) {
       console.error("Submission error:", error);
-
-      let errorMessage = "Failed to save transaction";
-      if (error.message) {
-        errorMessage = error.message;
-      }
-
-      showToast(errorMessage, {
+      showToast(`Failed to save transaction: ${error.message}`, {
         variant: "error",
       });
     } finally {
       setIsSubmitting(false);
     }
   }
-
-  // Calculate total value for display
-  const totalValue =
-    (parseFloat(form.quantity) || 0) * (parseFloat(form.rate) || 0);
-  const brokerageAmount =
-    (totalValue * (parseFloat(form.brokerageRate) || 0)) / 100;
 
   return (
     <AppShell title="New Transaction">
@@ -226,7 +186,6 @@ function EntryScreen() {
             <input
               type="number"
               min={0}
-              step="any"
               inputMode="numeric"
               value={form.quantity}
               onChange={(e) => update("quantity", e.target.value)}
@@ -241,7 +200,6 @@ function EntryScreen() {
             <input
               type="number"
               min={0}
-              step="any"
               inputMode="decimal"
               value={form.rate}
               onChange={(e) => update("rate", e.target.value)}
@@ -270,12 +228,12 @@ function EntryScreen() {
             <input
               type="number"
               min={0}
-              step="any"
               inputMode="decimal"
               value={form.brokerageRate}
               onChange={(e) => update("brokerageRate", e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
               placeholder="e.g., 2"
+              required
               disabled={isSubmitting}
             />
           </Field>
@@ -292,35 +250,10 @@ function EntryScreen() {
           />
         </Field>
 
-        {/* Transaction Summary */}
-        {form.quantity && form.rate && (
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-800 mb-2">
-              Transaction Summary
-            </h3>
-            <div className="text-sm text-gray-600 space-y-1">
-              <div>
-                Total Value: ₹
-                {totalValue.toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                })}
-              </div>
-              {form.brokerageRate && (
-                <div>
-                  Brokerage Amount: ₹
-                  {brokerageAmount.toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         <button
           type="submit"
           disabled={isSubmitting}
-          className="mt-2 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+          className="mt-2 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? "Saving to Google Sheets..." : "Submit Transaction"}
         </button>
@@ -351,6 +284,16 @@ export default function EntryPage() {
     </AppStateProvider>
   );
 }
+
+
+
+
+
+
+
+
+
+
 
 // "use client";
 
