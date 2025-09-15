@@ -6,7 +6,7 @@ const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
 export const getGoogleAuth = async (): Promise<sheets_v4.Sheets> => {
   try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
     if (!clientEmail || !privateKey) {
       console.error("Missing Google credentials:");
@@ -17,11 +17,14 @@ export const getGoogleAuth = async (): Promise<sheets_v4.Sheets> => {
 
     const auth = new google.auth.JWT({
       email: clientEmail,
-      key: privateKey.replace(/\\n/g, '\n'),
+      key: privateKey,
       scopes: SCOPES,
     });
 
+    // Test the authentication
     await auth.authorize();
+    
+    console.log("Google Sheets authentication successful");
     
     return google.sheets({ 
       version: "v4", 
@@ -32,9 +35,6 @@ export const getGoogleAuth = async (): Promise<sheets_v4.Sheets> => {
     throw error;
   }
 };
-
-
-
 
 
 

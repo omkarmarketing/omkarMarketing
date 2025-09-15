@@ -71,7 +71,7 @@ export default function Page() {
               Log In
             </button>
 
-            <div className="mt-3 text-center">
+            {/* <div className="mt-3 text-center">
               <button
                 type="button"
                 className="text-sm font-medium text-indigo-600 hover:underline"
@@ -79,7 +79,7 @@ export default function Page() {
               >
                 Forgot Password?
               </button>
-            </div>
+            </div> */}
           </form>
         </div>
       </AppShell>
