@@ -1,3 +1,4 @@
+// context/app-state.tsx
 "use client";
 
 import type React from "react";
@@ -7,6 +8,7 @@ import {
   useMemo,
   useState,
   useCallback,
+  useEffect,
 } from "react";
 
 export type Product = {
@@ -30,6 +32,7 @@ export type Transaction = {
 };
 
 type Company = {
+  id: string;
   name: string;
   city: string;
 };
@@ -40,33 +43,92 @@ type AppState = {
   transactions: Transaction[];
   loading: boolean;
   error: string | null;
-  addProduct: (p: Product) => void;
+  addProduct: (p: Product) => Promise<void>;
   addTransaction: (t: Omit<Transaction, "id">) => void;
   addCompany: (c: Company) => Promise<void>;
   clearError: () => void;
+  loadCompanies: () => Promise<void>;
+  loadProducts: () => Promise<void>;
 };
 
 const AppStateContext = createContext<AppState | null>(null);
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
-  const [companies, setCompanies] = useState<Company[]>([
-    { name: "Buyer Co.", city: "New York" },
-    { name: "Seller Inc.", city: "Chicago" },
-    { name: "Acme Traders", city: "Los Angeles" },
-    { name: "Global Exports", city: "Miami" },
-  ]);
-  const [products, setProducts] = useState<Product[]>([
-    { code: "P-100", name: "Wheat", rate: 50, companyName: "Buyer Co." },
-    { code: "P-200", name: "Corn", rate: 40, companyName: "Seller Inc." },
-  ]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const clearError = useCallback(() => setError(null), []);
 
-  const addProduct = useCallback((p: Product) => {
-    setProducts((prev) => [p, ...prev]);
+  const loadCompanies = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/companies");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load companies");
+      }
+
+      setCompanies(data.data || []);
+    } catch (error: any) {
+      console.error("Error loading companies:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/products");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load products");
+      }
+
+      setProducts(data || []);
+    } catch (error: any) {
+      console.error("Error loading products:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const addProduct = useCallback(async (p: Product) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(p),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to add product");
+      }
+
+      // Update local state only if API succeeds
+      setProducts((prev) => [p, ...prev]);
+      return data;
+    } catch (error: any) {
+      console.error("Error adding product:", error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const addTransaction = useCallback((t: Omit<Transaction, "id">) => {
@@ -90,7 +152,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
 
       if (!res.ok) {
-        // Handle specific error cases
         let errorMessage = data.error || "Failed to add company";
 
         if (res.status === 500 && data.error?.includes("configuration")) {
@@ -113,11 +174,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error("Error adding company:", error);
       setError(error.message);
-      throw error; // Re-throw to let the component handle it
+      throw error;
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    // Load initial data
+    loadCompanies();
+    loadProducts();
+  }, [loadCompanies, loadProducts]);
 
   const value = useMemo(
     () => ({
@@ -130,6 +197,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       addTransaction,
       addCompany,
       clearError,
+      loadCompanies,
+      loadProducts,
     }),
     [
       companies,
@@ -141,6 +210,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       addTransaction,
       addCompany,
       clearError,
+      loadCompanies,
+      loadProducts,
     ]
   );
 
