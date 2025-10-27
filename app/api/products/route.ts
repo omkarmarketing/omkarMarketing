@@ -6,7 +6,7 @@ const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
 const PRODUCTS_SHEET = "Products";
 
 async function ensureSheetAndHeaders(sheets: any) {
-  // Check if Products sheet exists, if not create it
+  // ... (keep the existing ensureSheetAndHeaders implementation)
   const sheetInfo = await sheets.spreadsheets.get({
     spreadsheetId: SPREADSHEET_ID,
   });
@@ -32,7 +32,6 @@ async function ensureSheetAndHeaders(sheets: any) {
     });
   }
 
-  // Ensure headers in row 1
   const headersResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: `${PRODUCTS_SHEET}!A1:D1`,
@@ -51,6 +50,7 @@ async function ensureSheetAndHeaders(sheets: any) {
 }
 
 export async function POST(request: NextRequest) {
+  // ... (keep existing POST implementation)
   try {
     if (!SPREADSHEET_ID) {
       return NextResponse.json(
@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { code, name, rate, companyName } = body;
 
-    // Validate required fields
     if (!code || !name) {
       return NextResponse.json(
         { error: 'Product code and name are required' },
@@ -71,21 +70,15 @@ export async function POST(request: NextRequest) {
     }
 
     const sheets = await getGoogleAuth();
-    await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
     await ensureSheetAndHeaders(sheets);
 
-    // Prepare the data for Google Sheets
     const values = [[code, name, rate, companyName]];
 
-    // Append data to the Products sheet
     const response = await sheets.spreadsheets.values.append({
-      auth: (sheets as any).auth,
       spreadsheetId: SPREADSHEET_ID,
       range: `${PRODUCTS_SHEET}!A2:D`,
       valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: values,
-      },
+      requestBody: { values },
     });
 
     return NextResponse.json(
@@ -102,6 +95,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  // ... (keep existing GET implementation)
   try {
     if (!SPREADSHEET_ID) {
       return NextResponse.json(
@@ -111,12 +105,9 @@ export async function GET() {
     }
     
     const sheets = await getGoogleAuth();
-    await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
     await ensureSheetAndHeaders(sheets);
 
-    // Read data from Products sheet
     const response = await sheets.spreadsheets.values.get({
-      auth: (sheets as any).auth,
       spreadsheetId: SPREADSHEET_ID,
       range: `${PRODUCTS_SHEET}!A2:D`,
     });
@@ -133,6 +124,155 @@ export async function GET() {
     console.error('Error fetching products:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to fetch products' },
+      { status: 500 }
+    );
+  }
+}
+
+// Add PUT method for updating products
+export async function PUT(request: NextRequest) {
+  try {
+    if (!SPREADSHEET_ID) {
+      return NextResponse.json(
+        { error: "GOOGLE_SPREADSHEET_ID environment variable not set" },
+        { status: 500 }
+      );
+    }
+    
+    const body = await request.json();
+    const { code, name, rate, companyName } = body;
+
+    if (!code || !name) {
+      return NextResponse.json(
+        { error: 'Product code and name are required' },
+        { status: 400 }
+      );
+    }
+
+    const sheets = await getGoogleAuth();
+    await ensureSheetAndHeaders(sheets);
+
+    // Get all products to find the row number
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${PRODUCTS_SHEET}!A2:D`,
+    });
+
+    const products = response.data.values || [];
+    const rowIndex = products.findIndex((row: any[]) => row[0] === code);
+    
+    if (rowIndex === -1) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    // Update the specific row (add 2 because header row and 0-based index)
+    const updateRange = `${PRODUCTS_SHEET}!A${rowIndex + 2}:D${rowIndex + 2}`;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: updateRange,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[code, name, rate, companyName]],
+      },
+    });
+
+    return NextResponse.json(
+      { message: 'Product updated successfully' },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error('Error updating product:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to update product' },
+      { status: 500 }
+    );
+  }
+}
+
+// Add DELETE method for deleting products
+export async function DELETE(request: NextRequest) {
+  try {
+    if (!SPREADSHEET_ID) {
+      return NextResponse.json(
+        { error: "GOOGLE_SPREADSHEET_ID environment variable not set" },
+        { status: 500 }
+      );
+    }
+    
+    const body = await request.json();
+    const { code } = body;
+
+    if (!code) {
+      return NextResponse.json(
+        { error: 'Product code is required' },
+        { status: 400 }
+      );
+    }
+
+    const sheets = await getGoogleAuth();
+    await ensureSheetAndHeaders(sheets);
+
+    // Get all products to find the row number
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${PRODUCTS_SHEET}!A2:D`,
+    });
+
+    const products = response.data.values || [];
+    const rowIndex = products.findIndex((row: any[]) => row[0] === code);
+    
+    if (rowIndex === -1) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    // Delete the row
+    const sheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+    });
+
+    const sheetId = sheetInfo.data.sheets?.find(
+      (sheet: any) => sheet.properties?.title === PRODUCTS_SHEET
+    )?.properties?.sheetId;
+
+    if (!sheetId) {
+      return NextResponse.json(
+        { error: 'Products sheet not found' },
+        { status: 404 }
+      );
+    }
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId,
+                dimension: "ROWS",
+                startIndex: rowIndex + 1, // +1 for header row
+                endIndex: rowIndex + 2,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return NextResponse.json(
+      { message: 'Product deleted successfully' },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error('Error deleting product:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete product' },
       { status: 500 }
     );
   }

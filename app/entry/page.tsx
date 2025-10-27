@@ -4,7 +4,7 @@ import type React from "react";
 import { AppShell } from "@/components/app-shell";
 import { useAppState } from "@/context/app-state";
 import { useToast } from "@/components/toast-provider";
-import { useState, useEffect, useMemo } from "react"; // Added useMemo
+import { useState, useEffect, useMemo } from "react";
 
 function EntryScreen() {
   const { products, companies, addTransaction } = useAppState();
@@ -19,8 +19,8 @@ function EntryScreen() {
     productCode: "",
     quantity: "",
     rate: "",
-    city: "",
-    brokerageRate: "",
+    sellerCity: "",
+    buyerCity: "",
     remarks: "",
   });
 
@@ -32,8 +32,7 @@ function EntryScreen() {
   const [showSellerSuggestions, setShowSellerSuggestions] = useState(false);
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
 
-  // FIX: Use useMemo to memoize companyNames and productCodes
-  // This prevents them from being re-created on every render
+  // Memoized company names and product codes
   const companyNames = useMemo(() => {
     return companies.map((company) => company.name);
   }, [companies]);
@@ -42,18 +41,23 @@ function EntryScreen() {
     return products.map((product) => product.code);
   }, [products]);
 
+  // Find company by name
+  const findCompanyByName = (name: string) => {
+    return companies.find((company) => company.name === name);
+  };
+
   useEffect(() => {
     // Update buyer suggestions based on input
     if (form.buyer) {
       const inputValue = form.buyer.toLowerCase();
       const filteredCompanies = companyNames
         .filter((company) => company.toLowerCase().includes(inputValue))
-        .slice(0, 5); // Limit to 5 suggestions
+        .slice(0, 5);
       setBuyerSuggestions(filteredCompanies);
     } else {
       setBuyerSuggestions([]);
     }
-  }, [form.buyer, companyNames]); // This dependency is now stable
+  }, [form.buyer, companyNames]);
 
   useEffect(() => {
     // Update seller suggestions based on input
@@ -61,12 +65,12 @@ function EntryScreen() {
       const inputValue = form.seller.toLowerCase();
       const filteredCompanies = companyNames
         .filter((company) => company.toLowerCase().includes(inputValue))
-        .slice(0, 5); // Limit to 5 suggestions
+        .slice(0, 5);
       setSellerSuggestions(filteredCompanies);
     } else {
       setSellerSuggestions([]);
     }
-  }, [form.seller, companyNames]); // This dependency is now stable
+  }, [form.seller, companyNames]);
 
   useEffect(() => {
     // Update product suggestions based on input
@@ -74,12 +78,12 @@ function EntryScreen() {
       const inputValue = form.productCode.toLowerCase();
       const filteredProducts = productCodes
         .filter((code) => code.toLowerCase().includes(inputValue))
-        .slice(0, 5); // Limit to 5 suggestions
+        .slice(0, 5);
       setProductSuggestions(filteredProducts);
     } else {
       setProductSuggestions([]);
     }
-  }, [form.productCode, productCodes]); // This dependency is now stable
+  }, [form.productCode, productCodes]);
 
   function update<K extends keyof typeof form>(
     key: K,
@@ -88,24 +92,28 @@ function EntryScreen() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function selectBuyer(company: string) {
-    update("buyer", company);
+  function selectBuyer(companyName: string) {
+    update("buyer", companyName);
+    const company = findCompanyByName(companyName);
+    if (company) {
+      update("buyerCity", company.city);
+    }
     setShowBuyerSuggestions(false);
   }
 
-  function selectSeller(company: string) {
-    update("seller", company);
+  function selectSeller(companyName: string) {
+    update("seller", companyName);
+    const company = findCompanyByName(companyName);
+    if (company) {
+      update("sellerCity", company.city);
+    }
     setShowSellerSuggestions(false);
   }
 
   function selectProduct(code: string) {
     update("productCode", code);
     setShowProductSuggestions(false);
-    // Auto-fill rate if product is found
-    const selectedProduct = products.find((p) => p.code === code);
-    if (selectedProduct) {
-      update("rate", selectedProduct.rate.toString());
-    }
+    // Note: Rate field is now manual, so we don't auto-fill it
   }
 
   async function saveToGoogleSheets(data: any) {
@@ -144,8 +152,8 @@ function EntryScreen() {
         Product: form.productCode,
         Quantity: form.quantity,
         Rate: form.rate,
-        City: form.city,
-        "Brokerage Rate": form.brokerageRate,
+        "Seller City": form.sellerCity,
+        "Buyer City": form.buyerCity,
         Remarks: form.remarks,
       };
 
@@ -160,8 +168,8 @@ function EntryScreen() {
         productCode: form.productCode,
         quantity: Number(form.quantity || 0),
         rate: Number(form.rate || 0),
-        city: form.city,
-        brokerageRate: Number(form.brokerageRate || 0),
+        sellerCity: form.sellerCity,
+        buyerCity: form.buyerCity,
         remarks: form.remarks,
       };
 
@@ -178,7 +186,6 @@ function EntryScreen() {
         productCode: "",
         quantity: "",
         rate: "",
-        brokerageRate: "",
         remarks: "",
       });
     } catch (error: any) {
@@ -225,6 +232,20 @@ function EntryScreen() {
               )}
             </div>
           </Field>
+          <Field label="Seller City">
+            <input
+              type="text"
+              value={form.sellerCity}
+              onChange={(e) => update("sellerCity", e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              placeholder="Seller city"
+              required
+              disabled={isSubmitting}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Buyer (Company Name)">
             <div className="relative">
               <input
@@ -255,7 +276,19 @@ function EntryScreen() {
               )}
             </div>
           </Field>
+          <Field label="Buyer City">
+            <input
+              type="text"
+              value={form.buyerCity}
+              onChange={(e) => update("buyerCity", e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              placeholder="Buyer city"
+              required
+              disabled={isSubmitting}
+            />
+          </Field>
         </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Date">
             <input
@@ -298,6 +331,7 @@ function EntryScreen() {
             </div>
           </Field>
         </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Quantity">
             <input
@@ -326,33 +360,7 @@ function EntryScreen() {
             />
           </Field>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="City">
-            <input
-              type="text"
-              value={form.city}
-              onChange={(e) => update("city", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-              placeholder="City"
-              required
-              disabled={isSubmitting}
-            />
-          </Field>
-          <Field label="Brokerage Rate">
-            <select
-              value={form.brokerageRate}
-              onChange={(e) => update("brokerageRate", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-              required
-              disabled={isSubmitting}
-            >
-              <option value="">Select brokerage rate</option>
-              <option value="2">2</option>
-              <option value="2.5">2.5</option>
-              <option value="3">3</option>
-            </select>
-          </Field>
-        </div>
+
         <Field label="Remarks">
           <input
             type="text"
@@ -363,6 +371,7 @@ function EntryScreen() {
             disabled={isSubmitting}
           />
         </Field>
+
         <div className="flex gap-4">
           <button
             type="submit"
@@ -380,7 +389,6 @@ function EntryScreen() {
                 productCode: "",
                 quantity: "",
                 rate: "",
-                brokerageRate: "",
                 remarks: "",
               });
             }}

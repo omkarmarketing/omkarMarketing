@@ -7,52 +7,58 @@ const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
 export async function POST(req: Request) {
   try {
     console.log("Environment SPREADSHEET_ID:", SPREADSHEET_ID);
-    
+
     const body = await req.json();
     console.log("Received request body:", body);
 
     // Match the column names from your Google Sheet
-    const { 
-      Seller: seller, 
-      Buyer: buyer, 
-      Date: date, 
-      Product: product, 
-      Quantity: quantity, 
-      Rate: rate, 
-      City: city, 
-      "Brokerage Rate": brokerageRate,
-      Remarks: remarks 
+    const {
+      Seller: seller,
+      Buyer: buyer,
+      Date: date,
+      Product: product,
+      Quantity: quantity,
+      Rate: rate,
+      "Seller City": sellerCity,
+      "Buyer City": buyerCity,
+      Remarks: remarks,
     } = body;
 
     if (!buyer || !seller || !date || !product || !quantity || !rate) {
-      return NextResponse.json({ 
-        message: "Missing required fields",
-        received: body 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          message: "Missing required fields",
+          received: body,
+        },
+        { status: 400 }
+      );
     }
 
     if (!SPREADSHEET_ID) {
       console.error("GOOGLE_SPREADSHEET_ID environment variable is not set");
-      return NextResponse.json({ 
-        message: "Spreadsheet ID not configured in environment variables" 
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          message: "Spreadsheet ID not configured in environment variables",
+        },
+        { status: 500 }
+      );
     }
 
     console.log("Attempting to authenticate with Google Sheets...");
     const sheets = await getGoogleAuth();
     console.log("Google Sheets authentication successful");
 
-    // Match the order of columns in your Google Sheet
+    // Match the order of columns in your Google Sheet: seller, city, date, buyer, city, product, quantity, price, remarks
     const values = [
-      seller, 
-      buyer, 
-      date, 
-      product, 
-      quantity, 
-      rate, 
-      city || "", 
-      brokerageRate || "", 
-      remarks || "" 
+      seller,
+      sellerCity || "",
+      date,
+      buyer,
+      buyerCity || "",
+      product,
+      quantity,
+      rate,
+      remarks || "",
     ];
 
     console.log("Appending values:", values);
@@ -66,20 +72,29 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log("Google Sheets response:", response.status, response.statusText);
-    
-    return NextResponse.json({ 
-      message: "Data added successfully!",
-      details: response.data
-    }, { status: 201 });
+    console.log(
+      "Google Sheets response:",
+      response.status,
+      response.statusText
+    );
 
+    return NextResponse.json(
+      {
+        message: "Data added successfully!",
+        details: response.data,
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error("API Error details:", error);
-    
-    return NextResponse.json({ 
-      error: "Internal server error",
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        message: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500 }
+    );
   }
 }

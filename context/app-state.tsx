@@ -29,6 +29,7 @@ export type Transaction = {
   city: string;
   state: string;
   brokerageRate: number; // %
+  remarks?: string;
 };
 
 type Company = {
@@ -43,9 +44,17 @@ type AppState = {
   transactions: Transaction[];
   loading: boolean;
   error: string | null;
+  // Product methods
   addProduct: (p: Product) => Promise<void>;
+  updateProduct: (code: string, p: Product) => Promise<void>;
+  deleteProduct: (code: string) => Promise<void>;
+  fetchProducts: () => Promise<void>;
+  // Transaction methods
   addTransaction: (t: Omit<Transaction, "id">) => void;
+  loadTransactions: () => Promise<void>;
+  // Company methods
   addCompany: (c: Company) => Promise<void>;
+  // Utility methods
   clearError: () => void;
   loadCompanies: () => Promise<void>;
   loadProducts: () => Promise<void>;
@@ -100,6 +109,31 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Add loadTransactions function
+  const loadTransactions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/transactions");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load transactions");
+      }
+
+      setTransactions(data || []);
+    } catch (error: any) {
+      console.error("Error loading transactions:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Alias for loadProducts to match the products page usage
+  const fetchProducts = useCallback(async () => {
+    return loadProducts();
+  }, [loadProducts]);
+
   const addProduct = useCallback(async (p: Product) => {
     setLoading(true);
     setError(null);
@@ -124,6 +158,70 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       return data;
     } catch (error: any) {
       console.error("Error adding product:", error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateProduct = useCallback(async (code: string, p: Product) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/products", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code, ...p }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update product");
+      }
+
+      // Update local state only if API succeeds
+      setProducts((prev) =>
+        prev.map((product) => (product.code === code ? p : product))
+      );
+      return data;
+    } catch (error: any) {
+      console.error("Error updating product:", error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const deleteProduct = useCallback(async (code: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/products", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete product");
+      }
+
+      // Update local state only if API succeeds
+      setProducts((prev) => prev.filter((product) => product.code !== code));
+      return data;
+    } catch (error: any) {
+      console.error("Error deleting product:", error);
       setError(error.message);
       throw error;
     } finally {
@@ -184,7 +282,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     // Load initial data
     loadCompanies();
     loadProducts();
-  }, [loadCompanies, loadProducts]);
+    loadTransactions(); // Load transactions on app start
+  }, [loadCompanies, loadProducts, loadTransactions]);
 
   const value = useMemo(
     () => ({
@@ -193,9 +292,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       transactions,
       loading,
       error,
+      // Product methods
       addProduct,
+      updateProduct,
+      deleteProduct,
+      fetchProducts,
+      // Transaction methods
       addTransaction,
+      loadTransactions,
+      // Company methods
       addCompany,
+      // Utility methods
       clearError,
       loadCompanies,
       loadProducts,
@@ -207,7 +314,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
       addProduct,
+      updateProduct,
+      deleteProduct,
+      fetchProducts,
       addTransaction,
+      loadTransactions,
       addCompany,
       clearError,
       loadCompanies,
