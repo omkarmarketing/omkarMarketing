@@ -11,35 +11,17 @@ import { Search, Filter, Edit, Trash2, X, ChevronDown } from "lucide-react";
 interface Product {
   code: string;
   name: string;
-  rate: number;
-  companyName: string;
 }
 
 function ProductsScreen() {
-  const {
-    addProduct,
-    companies,
-    products,
-    fetchProducts,
-    updateProduct,
-    deleteProduct,
-  } = useAppState();
+  const { addProduct, products, fetchProducts, updateProduct, deleteProduct } =
+    useAppState();
   const { showToast } = useToast();
   const [form, setForm] = useState({
     code: "",
     name: "",
-    rate: "",
-    companyName: "",
-    companyCity: "",
   });
-  const [companySuggestions, setCompanySuggestions] = useState<
-    typeof companies
-  >([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCompany, setSelectedCompany] = useState("");
-  const [minRate, setMinRate] = useState("");
-  const [maxRate, setMaxRate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -52,47 +34,21 @@ function ProductsScreen() {
     return products.filter((product) => {
       const matchesSearch =
         product.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.companyName.toLowerCase().includes(searchTerm.toLowerCase());
+        product.name.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesCompany =
-        !selectedCompany || product.companyName === selectedCompany;
-
-      const matchesMinRate = !minRate || product.rate >= Number(minRate);
-      const matchesMaxRate = !maxRate || product.rate <= Number(maxRate);
-
-      return (
-        matchesSearch && matchesCompany && matchesMinRate && matchesMaxRate
-      );
+      return matchesSearch;
     });
-  }, [products, searchTerm, selectedCompany, minRate, maxRate]);
+  }, [products, searchTerm]);
 
   function update<K extends keyof typeof form>(
     key: K,
     value: (typeof form)[K]
   ) {
     setForm((f) => ({ ...f, [key]: value }));
-
-    if (key === "companyName") {
-      const inputValue = value.toLowerCase();
-      const filtered = companies.filter(
-        (company) =>
-          company.name.toLowerCase().includes(inputValue) ||
-          company.city.toLowerCase().includes(inputValue)
-      );
-      setCompanySuggestions(filtered);
-      setShowSuggestions(true);
-    }
-  }
-
-  function selectCompany(company: (typeof companies)[0]) {
-    update("companyName", company.name);
-    setForm((f) => ({ ...f, companyCity: company.city }));
-    setShowSuggestions(false);
   }
 
   function clearForm() {
-    setForm({ code: "", name: "", rate: "", companyName: "", companyCity: "" });
+    setForm({ code: "", name: "" });
     setEditingProduct(null);
   }
 
@@ -101,10 +57,6 @@ function ProductsScreen() {
     setForm({
       code: product.code,
       name: product.name,
-      rate: product.rate.toString(),
-      companyName: product.companyName,
-      companyCity:
-        companies.find((c) => c.name === product.companyName)?.city || "",
     });
     // Scroll to form
     document
@@ -124,16 +76,12 @@ function ProductsScreen() {
         await updateProduct(editingProduct.code, {
           code: form.code,
           name: form.name,
-          rate: Number(form.rate || 0),
-          companyName: form.companyName || "",
         });
         showToast("Product Updated!", { variant: "success" });
       } else {
         await addProduct({
           code: form.code,
           name: form.name,
-          rate: Number(form.rate || 0),
-          companyName: form.companyName || "",
         });
         showToast("Product Added!", { variant: "success" });
       }
@@ -155,9 +103,6 @@ function ProductsScreen() {
 
   function clearFilters() {
     setSearchTerm("");
-    setSelectedCompany("");
-    setMinRate("");
-    setMaxRate("");
   }
 
   return (
@@ -208,60 +153,6 @@ function ProductsScreen() {
               </Field>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Rate">
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  inputMode="decimal"
-                  value={form.rate}
-                  onChange={(e) => update("rate", e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                  placeholder="e.g., 40.00"
-                />
-              </Field>
-
-              <Field label="Company">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={form.companyName}
-                    onChange={(e) => update("companyName", e.target.value)}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() =>
-                      setTimeout(() => setShowSuggestions(false), 200)
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                    placeholder="Search company..."
-                  />
-                  {form.companyCity && (
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                        {form.companyCity}
-                      </span>
-                    </div>
-                  )}
-                  {showSuggestions && companySuggestions.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full rounded-lg bg-white shadow-lg border border-gray-200 max-h-60 overflow-auto">
-                      {companySuggestions.map((company, index) => (
-                        <div
-                          key={index}
-                          className="px-4 py-3 text-sm text-gray-800 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          onMouseDown={() => selectCompany(company)}
-                        >
-                          <div className="font-medium">{company.name}</div>
-                          <div className="text-xs text-gray-500">
-                            {company.city}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Field>
-            </div>
-
             <button
               type="submit"
               className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 active:scale-95 transition-all duration-200"
@@ -293,81 +184,10 @@ function ProductsScreen() {
                   className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent w-full sm:w-64"
                 />
               </div>
-
-              {/* Filter Toggle */}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <Filter size={16} />
-                Filters
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${
-                    showFilters ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
+              
             </div>
           </div>
 
-          {/* Filters */}
-          {showFilters && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field label="Company">
-                  <select
-                    value={selectedCompany}
-                    onChange={(e) => setSelectedCompany(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                  >
-                    <option value="">All Companies</option>
-                    {companies.map((company) => (
-                      <option key={company.name} value={company.name}>
-                        {company.name} - {company.city}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
-                <Field label="Min Rate">
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={minRate}
-                    onChange={(e) => setMinRate(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                    placeholder="Min rate"
-                  />
-                </Field>
-
-                <Field label="Max Rate">
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={maxRate}
-                    onChange={(e) => setMaxRate(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                    placeholder="Max rate"
-                  />
-                </Field>
-              </div>
-
-              <div className="flex justify-between items-center mt-4">
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Clear all filters
-                </button>
-                <span className="text-sm text-gray-500">
-                  {filteredProducts.length} products found
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* Products Table */}
           <div className="overflow-hidden rounded-lg border border-gray-200">
@@ -377,7 +197,7 @@ function ProductsScreen() {
                 <div className="text-sm text-gray-500">
                   {products.length === 0
                     ? "Add your first product above"
-                    : "Try changing your filters"}
+                    : "Try changing your search term"}
                 </div>
               </div>
             ) : (
@@ -386,13 +206,10 @@ function ProductsScreen() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Product
+                        Product Code
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Company
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rate
+                        Product Name
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -405,28 +222,11 @@ function ProductsScreen() {
                         key={index}
                         className="hover:bg-gray-50 transition-colors"
                       >
-                        <td className="px-4 py-4">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {product.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {product.code}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="text-sm text-gray-900">
-                            {product.companyName}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {companies.find(
-                              (c) => c.name === product.companyName
-                            )?.city || ""}
-                          </div>
+                        <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                          {product.code}
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-900">
-                          ₹{product.rate.toFixed(2)}
+                          {product.name}
                         </td>
                         <td className="px-4 py-4 text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">

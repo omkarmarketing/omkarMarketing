@@ -50,8 +50,9 @@ function ExportScreen() {
         (t) =>
           (t.buyer && t.buyer.toLowerCase().includes(term)) ||
           (t.seller && t.seller.toLowerCase().includes(term)) ||
-          (t.productCode && t.productCode.toLowerCase().includes(term)) ||
-          (t.city && t.city.toLowerCase().includes(term))
+          (t.productName && t.productName.toLowerCase().includes(term)) ||
+          (t.sellerCity && t.sellerCity.toLowerCase().includes(term)) ||
+          (t.buyerCity && t.buyerCity.toLowerCase().includes(term))
       );
     }
 
@@ -132,30 +133,34 @@ function ExportScreen() {
     }
 
     try {
-      // Create CSV content
+      // Create CSV content with the new column structure
       const headers = [
+        "Sr No",
         "Date",
-        "Seller",
-        "Buyer",
-        "Product",
+        "Seller Company",
+        "Seller City",
+        "Buyer Company",
+        "Buyer City",
+        "Product Name",
         "Quantity",
         "Rate",
         "Amount",
-        "City",
         "Remarks",
       ];
       const csvContent = [
         headers.join(","),
-        ...filteredTransactions.map((t) =>
+        ...filteredTransactions.map((t, index) =>
           [
+            index + 1, // Sr No
             t.date,
             `"${t.seller}"`,
+            `"${t.sellerCity || ""}"`,
             `"${t.buyer}"`,
-            `"${t.productCode}"`,
+            `"${t.buyerCity || ""}"`,
+            `"${t.productName || t.productCode || ""}"`,
             t.quantity,
             t.rate,
             (t.quantity * t.rate).toFixed(2),
-            `"${t.city}"`,
             `"${t.remarks || ""}"`,
           ].join(",")
         ),
@@ -303,67 +308,83 @@ function ExportScreen() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Sr No
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Seller → Buyer
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Seller Company
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Product
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Seller City
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Qty × Rate
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Buyer Company
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Buyer City
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Product Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quantity
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Rate
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Amount
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      City
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredTransactions.map((transaction) => (
+                  {filteredTransactions.map((transaction, index) => (
                     <tr key={transaction.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                         {transaction.date
                           ? new Date(transaction.date).toLocaleDateString()
                           : "No date"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {transaction.seller || "No seller"}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          → {transaction.buyer || "No buyer"}
-                        </div>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.seller || "No seller"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transaction.productCode || "No product"}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaction.sellerCity || "No city"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {transaction.quantity || 0}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          × ₹{transaction.rate || 0}
-                        </div>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.buyer || "No buyer"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaction.buyerCity || "No city"}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.productName ||
+                          transaction.productCode ||
+                          "No product"}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                        {transaction.quantity || 0}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                        ₹{transaction.rate || 0}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-center text-gray-900">
                         ₹
                         {(
                           (transaction.quantity || 0) * (transaction.rate || 0)
                         ).toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {transaction.city || "No city"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center gap-2">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleEdit(transaction)}
                             className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
@@ -428,10 +449,11 @@ function EditTransactionModal({
     buyer: transaction.buyer || "",
     seller: transaction.seller || "",
     date: transaction.date || "",
-    productCode: transaction.productCode || "",
+    productName: transaction.productName || transaction.productCode || "",
     quantity: transaction.quantity?.toString() || "0",
     rate: transaction.rate?.toString() || "0",
-    city: transaction.city || "",
+    sellerCity: transaction.sellerCity || "",
+    buyerCity: transaction.buyerCity || transaction.city || "",
     remarks: transaction.remarks || "",
   });
 
@@ -449,6 +471,7 @@ function EditTransactionModal({
       ...form,
       quantity: Number(form.quantity),
       rate: Number(form.rate),
+      productCode: form.productName, // Keep productCode for backward compatibility
     });
   }
 
@@ -463,7 +486,7 @@ function EditTransactionModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Seller">
+            <Field label="Seller Company">
               <input
                 type="text"
                 value={form.seller}
@@ -472,13 +495,32 @@ function EditTransactionModal({
                 required
               />
             </Field>
-            <Field label="Buyer">
+            <Field label="Buyer Company">
               <input
                 type="text"
                 value={form.buyer}
                 onChange={(e) => update("buyer", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
                 required
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Seller City">
+              <input
+                type="text"
+                value={form.sellerCity}
+                onChange={(e) => update("sellerCity", e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              />
+            </Field>
+            <Field label="Buyer City">
+              <input
+                type="text"
+                value={form.buyerCity}
+                onChange={(e) => update("buyerCity", e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
               />
             </Field>
           </div>
@@ -493,11 +535,11 @@ function EditTransactionModal({
                 required
               />
             </Field>
-            <Field label="Product Code">
+            <Field label="Product Name">
               <input
                 type="text"
-                value={form.productCode}
-                onChange={(e) => update("productCode", e.target.value)}
+                value={form.productName}
+                onChange={(e) => update("productName", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
                 required
               />
@@ -524,16 +566,6 @@ function EditTransactionModal({
               />
             </Field>
           </div>
-
-          <Field label="City">
-            <input
-              type="text"
-              value={form.city}
-              onChange={(e) => update("city", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-              required
-            />
-          </Field>
 
           <Field label="Remarks">
             <input

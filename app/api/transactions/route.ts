@@ -10,40 +10,46 @@ export async function GET() {
 
     if (!SPREADSHEET_ID) {
       console.error("GOOGLE_SPREADSHEET_ID environment variable is not set");
-      return NextResponse.json({ 
-        message: "Spreadsheet ID not configured in environment variables" 
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          message: "Spreadsheet ID not configured in environment variables",
+        },
+        { status: 500 }
+      );
     }
 
     const sheets = await getGoogleAuth();
     console.log("Google Sheets authentication successful");
 
-    // Read data from Google Sheets
+    // Read data from Google Sheets - now 9 columns to match addData API
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A:H", // 8 columns as per your data
+      range: "Sheet1!A:I", // Updated to 9 columns
     });
 
     const rows = response.data.values || [];
     console.log(`Found ${rows.length} rows in Google Sheets`);
 
     // Skip header row and map to transactions, filter out empty rows
-    const transactions = rows.slice(1)
+    const transactions = rows
+      .slice(1)
       .map((row, index) => {
+        // Updated column mapping to match addData API structure
         const [
-          seller, 
-          buyer, 
-          date, 
-          product, 
-          quantity, 
-          rate, 
-          city, 
-          remarks 
+          seller,
+          sellerCity,
+          date,
+          buyer,
+          buyerCity,
+          product,
+          quantity,
+          rate,
+          remarks,
         ] = row;
 
         // Check if row has at least some data (not completely empty)
-        const hasData = seller || buyer || date || product || quantity || rate || city || remarks;
-        
+        const hasData = seller || buyer || date || product || quantity || rate;
+
         if (!hasData) {
           return null; // Skip empty rows
         }
@@ -53,27 +59,32 @@ export async function GET() {
           seller: seller || "",
           buyer: buyer || "",
           date: date || "",
-          productCode: product || "",
+          productCode: product || "", // This is actually product name now
+          productName: product || "", // Add product name field
           quantity: Number(quantity) || 0,
           rate: Number(rate) || 0,
-          city: city || "",
+          city: buyerCity || "", // Using buyer city as main city
+          sellerCity: sellerCity || "",
+          buyerCity: buyerCity || "",
           state: "",
-          remarks: remarks || ""
+          remarks: remarks || "",
         };
       })
-      .filter(transaction => transaction !== null); // Remove null entries
+      .filter((transaction) => transaction !== null); // Remove null entries
 
     console.log("Mapped transactions:", transactions.length);
     return NextResponse.json(transactions);
-
   } catch (error: any) {
     console.error("API Error details:", error);
-    
-    return NextResponse.json({ 
-      error: "Internal server error",
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        message: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -81,32 +92,39 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const updatedTransaction = await request.json();
-    
+
     if (!SPREADSHEET_ID) {
-      return NextResponse.json({ 
-        message: "Spreadsheet ID not configured" 
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          message: "Spreadsheet ID not configured",
+        },
+        { status: 500 }
+      );
     }
 
     const sheets = await getGoogleAuth();
-    
+
     // Calculate the row index (id is like "sheet-2", so we get the number part)
-    const rowIndex = parseInt(updatedTransaction.id.split('-')[1]);
-    
+    const rowIndex = parseInt(updatedTransaction.id.split("-")[1]);
+
     if (isNaN(rowIndex) || rowIndex < 2) {
-      return NextResponse.json({ error: "Invalid transaction ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid transaction ID" },
+        { status: 400 }
+      );
     }
 
-    // Update the row data - only 8 columns as per your sheet structure
+    // Update the row data - now 9 columns to match addData API structure
     const updatedRow = [
       updatedTransaction.seller,
-      updatedTransaction.buyer,
+      updatedTransaction.sellerCity || "",
       updatedTransaction.date,
-      updatedTransaction.productCode,
+      updatedTransaction.buyer,
+      updatedTransaction.buyerCity || "",
+      updatedTransaction.productName || updatedTransaction.productCode, // Use productName, fallback to productCode
       updatedTransaction.quantity.toString(),
       updatedTransaction.rate.toString(),
-      updatedTransaction.city,
-      updatedTransaction.remarks || ""
+      updatedTransaction.remarks || "",
     ];
 
     console.log(`Updating row ${rowIndex} with data:`, updatedRow);
@@ -114,7 +132,7 @@ export async function PUT(request: Request) {
     // Update the specific row in Google Sheets
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Sheet1!A${rowIndex}:H${rowIndex}`, // Only 8 columns
+      range: `Sheet1!A${rowIndex}:I${rowIndex}`, // Updated to 9 columns
       valueInputOption: "RAW",
       requestBody: {
         values: [updatedRow],
@@ -122,38 +140,49 @@ export async function PUT(request: Request) {
     });
 
     return NextResponse.json({ message: "Transaction updated successfully" });
-    
   } catch (error: any) {
     console.error("Error updating transaction:", error);
-    return NextResponse.json({ 
-      error: "Failed to update transaction",
-      message: error.message,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Failed to update transaction",
+        message: error.message,
+      },
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-    
+    const id = searchParams.get("id");
+
     if (!id) {
-      return NextResponse.json({ error: "Transaction ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Transaction ID is required" },
+        { status: 400 }
+      );
     }
 
     if (!SPREADSHEET_ID) {
-      return NextResponse.json({ 
-        message: "Spreadsheet ID not configured" 
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          message: "Spreadsheet ID not configured",
+        },
+        { status: 500 }
+      );
     }
 
     const sheets = await getGoogleAuth();
-    
+
     // Calculate the row index
-    const rowIndex = parseInt(id.split('-')[1]);
-    
+    const rowIndex = parseInt(id.split("-")[1]);
+
     if (isNaN(rowIndex) || rowIndex < 2) {
-      return NextResponse.json({ error: "Invalid transaction ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid transaction ID" },
+        { status: 400 }
+      );
     }
 
     console.log(`Deleting row ${rowIndex}`);
@@ -178,12 +207,14 @@ export async function DELETE(request: Request) {
     });
 
     return NextResponse.json({ message: "Transaction deleted successfully" });
-
   } catch (error: any) {
     console.error("Error deleting transaction:", error);
-    return NextResponse.json({ 
-      error: "Failed to delete transaction",
-      message: error.message,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Failed to delete transaction",
+        message: error.message,
+      },
+      { status: 500 }
+    );
   }
 }
