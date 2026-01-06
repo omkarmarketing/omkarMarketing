@@ -68,10 +68,14 @@ export function TransactionTable({
   const filteredTransactions = sortedTransactions.filter((transaction) => {
     const searchLower = searchTerm.toLowerCase();
     return (
-      transaction.buyerCompanyName.toLowerCase().includes(searchLower) ||
-      transaction.sellerCompanyName.toLowerCase().includes(searchLower) ||
-      transaction.product.toLowerCase().includes(searchLower) ||
-      transaction.date.toLowerCase().includes(searchLower) ||
+      (transaction.buyerCompanyName &&
+        transaction.buyerCompanyName.toLowerCase().includes(searchLower)) ||
+      (transaction.sellerCompanyName &&
+        transaction.sellerCompanyName.toLowerCase().includes(searchLower)) ||
+      (transaction.product &&
+        transaction.product.toLowerCase().includes(searchLower)) ||
+      (transaction.date &&
+        transaction.date.toLowerCase().includes(searchLower)) ||
       String(transaction.qty).includes(searchLower) ||
       String(transaction.price).includes(searchLower) ||
       (transaction.remarks &&

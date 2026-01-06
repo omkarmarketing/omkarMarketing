@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import type { ReactNode } from "react"
-import { Sidebar } from "./sidebar"
-import { MobileNav } from "./mobile-nav"
+import type { ReactNode } from "react";
+import { Sidebar } from "./sidebar";
+import { MobileNav } from "./mobile-nav";
 
 interface AppLayoutProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -17,5 +17,5 @@ export function AppLayout({ children }: AppLayoutProps) {
       </main>
       <MobileNav />
     </div>
-  )
+  );
 }

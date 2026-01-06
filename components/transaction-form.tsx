@@ -103,8 +103,10 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const handleBuyerCompanyChange = (value: string) => {
     form.setValue("buyerCompanyName", value);
     if (value.length > 0) {
-      const filtered = companies.filter((company) =>
-        company.companyName.toLowerCase().includes(value.toLowerCase())
+      const filtered = companies.filter(
+        (company) =>
+          company.companyName &&
+          company.companyName.toLowerCase().includes(value.toLowerCase())
       );
       setBuyerSuggestions(filtered);
       setShowBuyerSuggestions(true);
@@ -117,8 +119,10 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const handleSellerCompanyChange = (value: string) => {
     form.setValue("sellerCompanyName", value);
     if (value.length > 0) {
-      const filtered = companies.filter((company) =>
-        company.companyName.toLowerCase().includes(value.toLowerCase())
+      const filtered = companies.filter(
+        (company) =>
+          company.companyName &&
+          company.companyName.toLowerCase().includes(value.toLowerCase())
       );
       setSellerSuggestions(filtered);
       setShowSellerSuggestions(true);

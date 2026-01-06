@@ -202,14 +202,26 @@ const styles = StyleSheet.create({
   annexCell: {
     fontSize: 8.5,
     padding: 5,
-    flex: 1,
+    flex: 0.9,
     textAlign: "center",
   },
   annexCellRight: {
     fontSize: 8.5,
     padding: 5,
     textAlign: "center",
-    flex: 1,
+    flex: 0.9,
+  },
+  annexCellSmall: {
+    fontSize: 8.5,
+    padding: 5,
+    flex: 0.8,
+    textAlign: "center",
+  },
+  annexCellSmallRight: {
+    fontSize: 8.5,
+    padding: 5,
+    textAlign: "center",
+    flex: 0.8,
   },
 });
 
@@ -325,20 +337,33 @@ export const InvoiceDocument = ({ data }: any) => (
 
       <View style={{ borderWidth: 1, borderColor: "#ccc" }}>
         <View style={styles.annexHeader}>
-          {[
-            "Seller",
-            "Seller City",
-            "Date",
-            "Buyer",
-            "Buyer City",
-            "Product",
-            "Qty",
-            "Rate/Pc",
-          ].map((h, i) => (
-            <Text key={i} style={{ ...styles.annexCell, fontWeight: "bold" }}>
-              {h}
-            </Text>
-          ))}
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
+            Seller
+          </Text>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
+            Seller City
+          </Text>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
+            Date
+          </Text>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
+            Buyer
+          </Text>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
+            Buyer City
+          </Text>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
+            Product
+          </Text>
+          <Text style={{ ...styles.annexCellRight, fontWeight: "bold" }}>
+            Qty
+          </Text>
+          <Text style={{ ...styles.annexCellRight, fontWeight: "bold" }}>
+            Rate/Pc
+          </Text>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
+            Remarks
+          </Text>
         </View>
 
         {data.transactions.map((t: any, i: number) => (
@@ -351,39 +376,43 @@ export const InvoiceDocument = ({ data }: any) => (
             <Text style={styles.annexCell}>{t.product}</Text>
             <Text style={styles.annexCellRight}>{t.qty}</Text>
             <Text style={styles.annexCellRight}>{formatAmount(t.price)}</Text>
+            <Text style={styles.annexCell}>{t.remarks || ""}</Text>
           </View>
         ))}
 
         {/* SUMMARY */}
         {/* TOTAL QTY */}
         <View style={[styles.annexRow, { backgroundColor: "#fafafa" }]}>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 6 }}>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 7 }}>
             Total Quantity
           </Text>
           <Text style={styles.annexCellRight}>{data.summary.totalQty}</Text>
           <Text style={styles.annexCellRight}></Text>
+          <Text style={styles.annexCell}></Text>
         </View>
 
         {/* BROKERAGE RATE */}
         <View style={[styles.annexRow, { backgroundColor: "#fafafa" }]}>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 6 }}>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 7 }}>
             Brokerage Rate (per Qty)
           </Text>
           <Text style={styles.annexCellRight}>
             {formatAmount(data.summary.brokerageRate)}
           </Text>
           <Text style={styles.annexCellRight}></Text>
+          <Text style={styles.annexCell}></Text>
         </View>
 
         {/* TOTAL BROKERAGE */}
         <View style={[styles.annexRow, { backgroundColor: "#f0f0f0" }]}>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 6 }}>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 7 }}>
             Total Brokerage Amount
           </Text>
           <Text style={{ ...styles.annexCellRight, fontWeight: "bold" }}>
             {formatAmount(data.summary.totalPayable)}
           </Text>
           <Text style={styles.annexCellRight}></Text>
+          <Text style={styles.annexCell}></Text>
         </View>
       </View>
     </Page>

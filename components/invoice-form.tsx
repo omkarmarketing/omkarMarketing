@@ -57,8 +57,10 @@ export function InvoiceForm({
   const handleCompanyChange = (value: string) => {
     form.setValue("companyName", value);
     if (value.length > 0) {
-      const filtered = companies.filter((company) =>
-        company.companyName.toLowerCase().includes(value.toLowerCase())
+      const filtered = companies.filter(
+        (company) =>
+          company.companyName &&
+          company.companyName.toLowerCase().includes(value.toLowerCase())
       );
       setCompanySuggestions(filtered);
       setShowCompanySuggestions(true);
@@ -94,22 +96,28 @@ export function InvoiceForm({
       } else {
         // Handle specific error cases with more user-friendly messages
         if (data.error === "No matching transactions found.") {
-          toast({ 
-            title: "No Transactions Found", 
-            description: "There are no transactions matching your criteria. Please check your date range and company name.",
-            variant: "destructive" 
+          toast({
+            title: "No Transactions Found",
+            description:
+              "There are no transactions matching your criteria. Please check your date range and company name.",
+            variant: "destructive",
           });
         } else {
-          toast({ title: data.error || "Failed to generate invoice", variant: "destructive" });
+          toast({
+            title: data.error || "Failed to generate invoice",
+            variant: "destructive",
+          });
         }
         return; // Don't throw an error for user-friendly handling
       }
     } catch (e: any) {
       console.error("Error generating invoice:", e);
-      toast({ 
-        title: "Error generating invoice", 
-        description: e.message || "An unexpected error occurred while generating the invoice",
-        variant: "destructive" 
+      toast({
+        title: "Error generating invoice",
+        description:
+          e.message ||
+          "An unexpected error occurred while generating the invoice",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
