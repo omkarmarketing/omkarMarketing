@@ -43,6 +43,27 @@ interface Transaction {
   _rowIndex?: number;
 }
 
+// Helper function to format date as dd/mm/yyyy
+function formatDate(dateString: string): string {
+  if (!dateString) return "";
+
+  // If already in dd/mm/yyyy format, return as is
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    return dateString;
+  }
+
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    return dateString; // Return original if not a valid date
+  }
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
 interface TransactionTableProps {
   refreshTrigger?: number;
   onRefresh?: () => void;
@@ -57,12 +78,17 @@ export function TransactionTable({
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
-  // Sort transactions by date first, then filter based on search term
+  // Sort transactions by date (latest first), then filter based on search term
   const sortedTransactions = [...transactions].sort((a, b) => {
     // Convert dates to proper format for comparison
     const dateA = new Date(a.date);
     const dateB = new Date(b.date);
-    return dateA.getTime() - dateB.getTime();
+
+    // Handle invalid dates by putting them at the end
+    if (isNaN(dateA.getTime())) return 1;
+    if (isNaN(dateB.getTime())) return -1;
+
+    return dateB.getTime() - dateA.getTime(); // Descending order (latest first)
   });
 
   const filteredTransactions = sortedTransactions.filter((transaction) => {
@@ -273,30 +299,6 @@ export function TransactionTable({
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Buyer Company
-                  </label>
-                  <Input
-                    value={editingTransaction.buyerCompanyName}
-                    onChange={(e) =>
-                      handleEditChange("buyerCompanyName", e.target.value)
-                    }
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Buyer City
-                  </label>
-                  <Input
-                    value={editingTransaction.buyerCompanyCity || ""}
-                    onChange={(e) =>
-                      handleEditChange("buyerCompanyCity", e.target.value)
-                    }
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
                     Seller Company
                   </label>
                   <Input
@@ -321,7 +323,31 @@ export function TransactionTable({
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Product
+                    Buyer Company
+                  </label>
+                  <Input
+                    value={editingTransaction.buyerCompanyName}
+                    onChange={(e) =>
+                      handleEditChange("buyerCompanyName", e.target.value)
+                    }
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Buyer City
+                  </label>
+                  <Input
+                    value={editingTransaction.buyerCompanyCity || ""}
+                    onChange={(e) =>
+                      handleEditChange("buyerCompanyCity", e.target.value)
+                    }
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Product Name
                   </label>
                   <Input
                     value={editingTransaction.product}
@@ -445,28 +471,25 @@ export function TransactionTable({
                       Date
                     </TableHead>
                     <TableHead className="font-semibold text-foreground/80 py-4">
-                      Buyer Company
-                    </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4">
-                      Buyer City
-                    </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4">
                       Seller Company
                     </TableHead>
                     <TableHead className="font-semibold text-foreground/80 py-4">
                       Seller City
                     </TableHead>
                     <TableHead className="font-semibold text-foreground/80 py-4">
-                      Product
+                      Buyer Company
+                    </TableHead>
+                    <TableHead className="font-semibold text-foreground/80 py-4">
+                      Buyer City
+                    </TableHead>
+                    <TableHead className="font-semibold text-foreground/80 py-4">
+                      Product Name
                     </TableHead>
                     <TableHead className="font-semibold text-foreground/80 py-4 text-right">
                       Qty
                     </TableHead>
                     <TableHead className="font-semibold text-foreground/80 py-4 text-right">
                       Price
-                    </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4 text-right">
-                      Total
                     </TableHead>
                     <TableHead className="font-semibold text-foreground/80 py-4">
                       Remarks
@@ -498,7 +521,6 @@ export function TransactionTable({
                     filteredTransactions.map((tx, idx) => {
                       const qty = Number(tx.qty) || 0;
                       const price = Number(tx.price) || 0;
-                      const total = qty * price;
                       return (
                         <TableRow
                           key={idx}
@@ -507,19 +529,10 @@ export function TransactionTable({
                           <TableCell className="py-4">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">{tx.date}</span>
+                              <span className="font-medium">
+                                {formatDate(tx.date)}
+                              </span>
                             </div>
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <div className="font-medium">
-                              {tx.buyerCompanyName}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Buyer
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-4 text-muted-foreground">
-                            {tx.buyerCompanyCity || "-"}
                           </TableCell>
                           <TableCell className="py-4">
                             <div className="font-medium">
@@ -531,6 +544,17 @@ export function TransactionTable({
                           </TableCell>
                           <TableCell className="py-4 text-muted-foreground">
                             {tx.sellerCompanyCity || "-"}
+                          </TableCell>
+                          <TableCell className="py-4">
+                            <div className="font-medium">
+                              {tx.buyerCompanyName}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Buyer
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-4 text-muted-foreground">
+                            {tx.buyerCompanyCity || "-"}
                           </TableCell>
                           <TableCell className="py-4">
                             <Badge variant="secondary" className="text-xs">
@@ -545,11 +569,6 @@ export function TransactionTable({
                           <TableCell className="py-4 text-center font-medium">
                             <div className="flex justify-center items-center gap-1">
                               <span>{price.toFixed(2)}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-4 text-center font-bold text-primary">
-                            <div className="flex justify-center items-center gap-1">
-                              <span>{total.toFixed(2)}</span>
                             </div>
                           </TableCell>
                           <TableCell className="py-4">

@@ -24,6 +24,7 @@ import { InvoiceSummaryPreview } from "@/components/invoice-summary-preview";
 /* -------------------- VALIDATION -------------------- */
 const schema = z.object({
   companyName: z.string().min(1, "Company name is required"),
+  companyCity: z.string().optional(),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   brokerageRate: z.coerce.number().min(0).max(100),
@@ -49,6 +50,7 @@ export function InvoiceForm({
     resolver: zodResolver(schema),
     defaultValues: {
       companyName: "",
+      companyCity: "",
       startDate: "",
       endDate: new Date().toISOString().split("T")[0],
       brokerageRate: 2,
@@ -60,12 +62,33 @@ export function InvoiceForm({
     fetch("/api/company")
       .then((res) => res.json())
       .then(setCompanies)
-      .catch(() => setCompanies([]));
+      .catch((error) => {
+        console.error("Error fetching companies:", error);
+        setCompanies([]);
+      });
   }, []);
 
   /* -------------------- COMPANY SEARCH -------------------- */
   const handleCompanyChange = (value: string) => {
     form.setValue("companyName", value);
+
+    // Auto-populate company city when company name changes
+    if (value) {
+      const company = companies.find(
+        (c) =>
+          (c.companyName || c["Company Name"] || "")
+            ?.toString()
+            .toLowerCase() === value.toLowerCase()
+      );
+      if (company) {
+        form.setValue(
+          "companyCity",
+          company.companyCity || company["City"] || ""
+        );
+      } else {
+        form.setValue("companyCity", "");
+      }
+    }
 
     if (!value) {
       setShowSuggestions(false);
@@ -73,7 +96,10 @@ export function InvoiceForm({
     }
 
     const filtered = companies.filter((c) =>
-      c.companyName?.toLowerCase().includes(value.toLowerCase())
+      (c.companyName || c["Company Name"] || "")
+        ?.toString()
+        .toLowerCase()
+        .includes(value.toLowerCase())
     );
 
     setCompanySuggestions(filtered);
@@ -81,7 +107,11 @@ export function InvoiceForm({
   };
 
   const selectCompany = (company: any) => {
-    form.setValue("companyName", company.companyName);
+    form.setValue(
+      "companyName",
+      company.companyName || company["Company Name"] || ""
+    );
+    form.setValue("companyCity", company.companyCity || company["City"] || "");
     setShowSuggestions(false);
   };
 
@@ -188,18 +218,43 @@ export function InvoiceForm({
                       <div className="absolute z-20 mt-1 w-full rounded-lg border bg-white shadow-lg max-h-48 overflow-y-auto">
                         {companySuggestions.map((c) => (
                           <div
-                            key={`${c.companyName}-${c.companyCity}`}
+                            key={`${c.companyName || c["Company Name"]}-${
+                              c.companyCity || c["City"]
+                            }`}
                             onClick={() => selectCompany(c)}
                             className="px-4 py-2 text-sm cursor-pointer hover:bg-gray-100"
                           >
-                            <span className="font-medium">{c.companyName}</span>
+                            <span className="font-medium">
+                              {c.companyName || c["Company Name"]}
+                            </span>
                             <span className="ml-2 text-xs text-gray-500">
-                              {c.companyCity}
+                              ({c.companyCity || c["City"]})
                             </span>
                           </div>
                         ))}
                       </div>
                     )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* COMPANY CITY */}
+              <FormField
+                name="companyCity"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company City</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Company city"
+                        className="h-11"
+                        disabled={true}
+                        readOnly
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

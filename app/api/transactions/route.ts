@@ -12,6 +12,7 @@ import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
 import {
   getCurrentFinancialYearSheetName,
   getCompanySheetName,
+  getProductSheetName,
 } from "@/lib/sheets-helper";
 import { z } from "zod";
 
@@ -51,7 +52,37 @@ export async function GET() {
     await ensureSheet(sheetId, sheetName);
     const rows = await getSheetValues(sheetId, sheetName);
 
-    return NextResponse.json(rows);
+    // Fetch product data to map product codes to names
+    const productSheetName = getProductSheetName();
+    const productRows = await getSheetValues(sheetId, productSheetName);
+    const productMap = new Map();
+    productRows.forEach((p: any) => {
+      const productCode =
+        p.productCode || p["productCode"] || p["Product Code"] || "";
+      const productName =
+        p.productName || p["productName"] || p["Product Name"] || "";
+      if (productCode) {
+        productMap.set(productCode, productName);
+      }
+    });
+
+    // Map product codes to product names in the transactions
+    const mappedRows = rows.map((row: any) => {
+      let productCode = row.product || row.Product || "";
+      let productName = productCode;
+
+      // If productCode exists in the map, use the product name instead
+      if (productMap.has(productCode)) {
+        productName = productMap.get(productCode);
+      }
+
+      return {
+        ...row,
+        product: productName,
+      };
+    });
+
+    return NextResponse.json(mappedRows);
   } catch (error) {
     console.error("GET transactions error:", error);
     return NextResponse.json([]);
@@ -99,6 +130,29 @@ export async function POST(request: NextRequest) {
     const buyerCity = await resolveCity(sheetId, data.buyerCompanyName);
     const sellerCity = await resolveCity(sheetId, data.sellerCompanyName);
 
+    // Fetch product data to map product codes to names
+    const productSheetName = getProductSheetName();
+    const productRows = await getSheetValues(sheetId, productSheetName);
+    const productMap = new Map();
+    productRows.forEach((p: any) => {
+      const productCode =
+        p.productCode || p["productCode"] || p["Product Code"] || "";
+      const productName =
+        p.productName || p["productName"] || p["Product Name"] || "";
+      if (productCode) {
+        productMap.set(productCode, productName);
+      }
+    });
+
+    // Map product name to product code if product name exists in the map
+    let productValue = data.product;
+    for (const [code, name] of productMap.entries()) {
+      if (name === data.product) {
+        productValue = code; // Store product code instead of name
+        break;
+      }
+    }
+
     const row = finalHeaders.map((h) => {
       switch (h) {
         case "buyerCompanyName":
@@ -112,7 +166,7 @@ export async function POST(request: NextRequest) {
         case "date":
           return data.date;
         case "product":
-          return data.product;
+          return productValue;
         case "qty":
           return data.qty;
         case "price":
@@ -161,6 +215,29 @@ export async function PUT(request: NextRequest) {
     const buyerCity = await resolveCity(sheetId, data.buyerCompanyName);
     const sellerCity = await resolveCity(sheetId, data.sellerCompanyName);
 
+    // Fetch product data to map product codes to names
+    const productSheetName = getProductSheetName();
+    const productRows = await getSheetValues(sheetId, productSheetName);
+    const productMap = new Map();
+    productRows.forEach((p: any) => {
+      const productCode =
+        p.productCode || p["productCode"] || p["Product Code"] || "";
+      const productName =
+        p.productName || p["productName"] || p["Product Name"] || "";
+      if (productCode) {
+        productMap.set(productCode, productName);
+      }
+    });
+
+    // Map product name to product code if product name exists in the map
+    let productValue = data.product;
+    for (const [code, name] of productMap.entries()) {
+      if (name === data.product) {
+        productValue = code; // Store product code instead of name
+        break;
+      }
+    }
+
     const row = headers.map((h) => {
       switch (h) {
         case "buyerCompanyName":
@@ -174,7 +251,7 @@ export async function PUT(request: NextRequest) {
         case "date":
           return data.date;
         case "product":
-          return data.product;
+          return productValue;
         case "qty":
           return data.qty;
         case "price":

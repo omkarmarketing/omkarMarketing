@@ -221,17 +221,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         product: values.product,
       });
 
-      form.reset({
-        buyerCompanyName: "",
-        buyerCity: "",
-        sellerCompanyName: "",
-        sellerCity: "",
-        date: new Date().toISOString().split("T")[0],
-        product: "",
-        qty: 1,
-        price: 0,
-        remarks: "",
-      });
+      form.setValue("product", "");
+      form.setValue("qty", 1);
+      form.setValue("price", 0);
+      form.setValue("remarks", "");
+      setProductInputValue("");
       onSuccess?.();
     } catch (error) {
       toast({
@@ -537,9 +531,32 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               )}
             />
 
-            <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? "Recording..." : "Record Transaction"}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={isLoading} className="flex-1">
+                {isLoading ? "Recording..." : "Record Transaction"}
+              </Button>
+              <Button
+                type="button"
+                disabled={isLoading}
+                variant="outline"
+                onClick={() => {
+                  form.reset({
+                    buyerCompanyName: "",
+                    buyerCity: "",
+                    sellerCompanyName: "",
+                    sellerCity: "",
+                    date: new Date().toISOString().split("T")[0],
+                    product: "",
+                    qty: 1,
+                    price: 0,
+                    remarks: "",
+                  });
+                  setProductInputValue("");
+                }}
+              >
+                Clear Form
+              </Button>
+            </div>
           </form>
         </Form>
       </CardContent>

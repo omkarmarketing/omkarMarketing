@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // 📌 Auto Invoice Number
     const invoiceNumber = cleanedRows.length + 1;
-    const paddedInvoice = invoiceNumber.toString().padStart(3, "0");
+    const paddedInvoice = `INV-${invoiceNumber.toString().padStart(3, "0")}`;
 
     // 🎯 Filter by date range + company name
     const filtered = cleanedRows.filter((tx) => {

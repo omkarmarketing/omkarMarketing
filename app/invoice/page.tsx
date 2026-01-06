@@ -9,7 +9,7 @@ export default function InvoicePage() {
 
   // ⭐ Auto-generate file name
   const fileName = invoiceData
-    ? `INV-${invoiceData.summary.invoiceNo}_${invoiceData.summary.companyName}_${invoiceData.summary.invoiceDate}`
+    ? `${invoiceData.summary.invoiceNo}_${invoiceData.summary.companyName}_${invoiceData.summary.invoiceDate}`
         .replace(/\s+/g, "_")
         .replace(/[^a-zA-Z0-9._-]/g, "") + ".pdf"
     : "invoice.pdf";
