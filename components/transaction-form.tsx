@@ -310,6 +310,63 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
 
             <FormField
               control={form.control}
+              name="sellerCompanyName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Seller Company</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        placeholder="Enter seller company name"
+                        value={field.value}
+                        onChange={(e) =>
+                          handleSellerCompanyChange(e.target.value)
+                        }
+                        disabled={isLoading}
+                        autoComplete="off"
+                      />
+                      {showSellerSuggestions &&
+                        sellerSuggestions.length > 0 && (
+                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                          {sellerSuggestions.map((company) => (
+                            <div
+                              key={`${company.companyName}-${company.companyCity}`}
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                              onClick={() => selectSellerCompany(company)}
+                            >
+                              {company.companyName} ({company.companyCity})
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="sellerCity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Seller City</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Seller city"
+                      {...field}
+                      disabled={true}
+                      readOnly
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="buyerCompanyName"
               render={({ field }) => (
                 <FormItem>
@@ -366,63 +423,6 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
 
             <FormField
               control={form.control}
-              name="sellerCompanyName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Seller Company</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input
-                        placeholder="Enter seller company name"
-                        value={field.value}
-                        onChange={(e) =>
-                          handleSellerCompanyChange(e.target.value)
-                        }
-                        disabled={isLoading}
-                        autoComplete="off"
-                      />
-                      {showSellerSuggestions &&
-                        sellerSuggestions.length > 0 && (
-                          <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
-                            {sellerSuggestions.map((company) => (
-                              <div
-                                key={`${company.companyName}-${company.companyCity}`}
-                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                onClick={() => selectSellerCompany(company)}
-                              >
-                                {company.companyName} ({company.companyCity})
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="sellerCity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Seller City</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Seller city"
-                      {...field}
-                      disabled={true}
-                      readOnly
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="product"
               render={({ field }) => (
                 <FormItem>
@@ -458,18 +458,18 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
                       />
                       {showProductSuggestions &&
                         productSuggestions.length > 0 && (
-                          <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
-                            {productSuggestions.map((product) => (
-                              <div
-                                key={product.productCode}
-                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                onClick={() => selectProduct(product)}
-                              >
-                                {product.productName} ({product.productCode})
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                          {productSuggestions.map((product) => (
+                            <div
+                              key={product.productCode}
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                              onClick={() => selectProduct(product)}
+                            >
+                              {product.productName} ({product.productCode})
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </FormControl>
                   <FormMessage />
