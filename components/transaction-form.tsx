@@ -327,18 +327,18 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
                       />
                       {showSellerSuggestions &&
                         sellerSuggestions.length > 0 && (
-                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
-                          {sellerSuggestions.map((company) => (
-                            <div
-                              key={`${company.companyName}-${company.companyCity}`}
-                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                              onClick={() => selectSellerCompany(company)}
-                            >
-                              {company.companyName} ({company.companyCity})
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                          <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                            {sellerSuggestions.map((company) => (
+                              <div
+                                key={`${company.companyName}-${company.companyCity}`}
+                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                onClick={() => selectSellerCompany(company)}
+                              >
+                                {company.companyName} ({company.companyCity})
+                              </div>
+                            ))}
+                          </div>
+                        )}
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -458,18 +458,18 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
                       />
                       {showProductSuggestions &&
                         productSuggestions.length > 0 && (
-                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
-                          {productSuggestions.map((product) => (
-                            <div
-                              key={product.productCode}
-                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                              onClick={() => selectProduct(product)}
-                            >
-                              {product.productName} ({product.productCode})
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                          <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                            {productSuggestions.map((product) => (
+                              <div
+                                key={product.productCode}
+                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                onClick={() => selectProduct(product)}
+                              >
+                                {product.productName} ({product.productCode})
+                              </div>
+                            ))}
+                          </div>
+                        )}
                     </div>
                   </FormControl>
                   <FormMessage />

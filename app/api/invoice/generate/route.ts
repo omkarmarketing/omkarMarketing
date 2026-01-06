@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
   const fySheet = getCurrentFinancialYearSheetName();
 
   const body = await req.json();
-  const { companyName, startDate, endDate, brokerageRate } =
-    requestSchema.parse(body);
+  const { companyName, startDate, endDate, brokerageRate, isPreview } =
+    requestSchema.extend({ isPreview: z.boolean().optional() }).parse(body);
 
   // Fetch rows from sheet
   const rows = await getSheetValues(sheetId, fySheet);
@@ -91,9 +91,30 @@ export async function POST(req: NextRequest) {
   const totalQty = filtered.reduce((sum, r) => sum + r.qty, 0);
   const totalPayable = totalQty * brokerageRate;
 
+  // Format date as dd/mm/yyyy
+  function formatDate(dateString: string): string {
+    if (!dateString) return "";
+
+    // If already in dd/mm/yyyy format, return as is
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+      return dateString;
+    }
+
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return dateString; // Return original if not a valid date
+    }
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+
+    return `${day}/${month}/${year}`;
+  }
+
   // Format transactions with all details
   const formattedTransactions = filtered.map((tx) => ({
-    date: String(tx.date || "").trim(),
+    date: formatDate(tx.date || ""),
     buyerCompanyName: String(tx.buyerCompanyName || "").trim(),
     buyerCompanyCity: String(tx.buyerCompanyCity || "").trim(),
     sellerCompanyName: String(tx.sellerCompanyName || "").trim(),
@@ -107,17 +128,34 @@ export async function POST(req: NextRequest) {
     remarks: String(tx.remarks || "").trim(),
   }));
 
-  return NextResponse.json({
+  // For preview requests, we don't want to generate a new invoice number
+  const invoiceNumberForPreview = isPreview ? "PREVIEW" : paddedInvoice;
+  const invoiceDateForPreview = isPreview
+    ? "Preview Date"
+    : new Date().toLocaleDateString("en-GB");
+
+  const response = {
     success: true,
     summary: {
-      invoiceNo: paddedInvoice,
+      invoiceNo: invoiceNumberForPreview,
       companyName,
-      invoiceDate: new Date().toLocaleDateString("en-GB"), // ✅ ADD THIS
-      dateRange: { start: startDate, end: endDate },
+      invoiceDate: invoiceDateForPreview,
+      dateRange: {
+        start: formatDate(startDate),
+        end: formatDate(endDate),
+      },
       brokerageRate,
       totalQty,
       totalPayable,
     },
     transactions: formattedTransactions,
-  });
+  };
+
+  // For actual invoice generation (not preview), we can add additional processing here if needed
+  if (!isPreview) {
+    // This is where we could add actual invoice generation logic
+    // For now, we're just returning the same response
+  }
+
+  return NextResponse.json(response);
 }
