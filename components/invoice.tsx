@@ -373,7 +373,7 @@ export const InvoiceDocument = ({ data }: any) => (
             <Text style={styles.annexCell}>{t.date}</Text>
             <Text style={styles.annexCell}>{t.buyerCompanyName}</Text>
             <Text style={styles.annexCell}>{t.buyerCompanyCity}</Text>
-            <Text style={styles.annexCell}>{t.product}</Text>
+            <Text style={styles.annexCell}>{t.product.name}</Text>
             <Text style={styles.annexCellRight}>{t.qty}</Text>
             <Text style={styles.annexCellRight}>{formatAmount(t.price)}</Text>
             <Text style={styles.annexCellRight}>{formatAmount(t.amount)}</Text>

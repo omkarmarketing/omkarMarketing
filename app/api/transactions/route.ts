@@ -107,11 +107,11 @@ export async function POST(request: NextRequest) {
       headers.length > 0
         ? headers
         : [
-            "buyerCompanyName",
-            "buyerCompanyCity",
             "sellerCompanyName",
             "sellerCompanyCity",
             "date",
+            "buyerCompanyName",
+            "buyerCompanyCity",
             "product",
             "qty",
             "price",
@@ -153,18 +153,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const row = finalHeaders.map((h) => {
+    const row = headers.map((h) => {
       switch (h) {
-        case "buyerCompanyName":
-          return data.buyerCompanyName;
-        case "buyerCompanyCity":
-          return buyerCity;
         case "sellerCompanyName":
           return data.sellerCompanyName;
         case "sellerCompanyCity":
           return sellerCity;
         case "date":
           return data.date;
+        case "buyerCompanyName":
+          return data.buyerCompanyName;
+        case "buyerCompanyCity":
+          return buyerCity;
         case "product":
           return productValue;
         case "qty":
@@ -240,16 +240,16 @@ export async function PUT(request: NextRequest) {
 
     const row = headers.map((h) => {
       switch (h) {
-        case "buyerCompanyName":
-          return data.buyerCompanyName;
-        case "buyerCompanyCity":
-          return buyerCity;
         case "sellerCompanyName":
           return data.sellerCompanyName;
         case "sellerCompanyCity":
           return sellerCity;
         case "date":
           return data.date;
+        case "buyerCompanyName":
+          return data.buyerCompanyName;
+        case "buyerCompanyCity":
+          return buyerCity;
         case "product":
           return productValue;
         case "qty":

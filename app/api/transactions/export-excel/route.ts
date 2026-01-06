@@ -52,11 +52,23 @@ export async function GET() {
       );
     }
 
-    const headers = Object.keys(mappedTransactions[0]);
+    // Define the desired column order
+    const desiredHeaders = [
+      "sellerCompanyName",
+      "sellerCompanyCity",
+      "date",
+      "buyerCompanyName",
+      "buyerCompanyCity",
+      "product",
+      "qty",
+      "price",
+      "remarks",
+    ];
+
     const csvContent = [
-      headers.join(","),
+      desiredHeaders.join(","),
       ...mappedTransactions.map((row: any) =>
-        headers.map((h) => `"${row[h] || ""}"`).join(",")
+        desiredHeaders.map((h) => `"${row[h] || ""}"`).join(",")
       ),
     ].join("\n");
 
