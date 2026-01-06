@@ -329,11 +329,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
                         <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                           {buyerSuggestions.map((company) => (
                             <div
-                              key={company.companyName}
+                              key={`${company.companyName}-${company.companyCity}`}
                               className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
                               onClick={() => selectBuyerCompany(company)}
                             >
-                              {company.companyName}
+                              {company.companyName} ({company.companyCity})
                             </div>
                           ))}
                         </div>
@@ -386,11 +386,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
                           <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                             {sellerSuggestions.map((company) => (
                               <div
-                                key={company.companyName}
+                                key={`${company.companyName}-${company.companyCity}`}
                                 className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
                                 onClick={() => selectSellerCompany(company)}
                               >
-                                {company.companyName}
+                                {company.companyName} ({company.companyCity})
                               </div>
                             ))}
                           </div>

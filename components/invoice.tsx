@@ -343,12 +343,8 @@ export const InvoiceDocument = ({ data }: any) => (
           <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
             Seller City
           </Text>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
-            Date
-          </Text>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
-            Buyer
-          </Text>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>Date</Text>
+          <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>Buyer</Text>
           <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
             Buyer City
           </Text>

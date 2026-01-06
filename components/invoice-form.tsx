@@ -153,11 +153,11 @@ export function InvoiceForm({
                           <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                             {companySuggestions.map((company) => (
                               <div
-                                key={company.companyName}
+                                key={`${company.companyName}-${company.companyCity}`}
                                 className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
                                 onClick={() => selectCompany(company)}
                               >
-                                {company.companyName}
+                                {company.companyName} ({company.companyCity})
                               </div>
                             ))}
                           </div>
