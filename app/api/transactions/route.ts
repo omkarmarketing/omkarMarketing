@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
       return `${day}-${month}-${year}`;
     })();
 
-    const row = headers.map((h) => {
+    const row = finalHeaders.map((h) => {
       switch (h) {
         case "sellerCompanyName":
           return data.sellerCompanyName;
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Find the date column index
-    const dateIndex = headers.indexOf("date");
+    const dateIndex = finalHeaders.indexOf("date");
     
     // Insert chronologically based on date
     await insertRowChronologically(sheetId, sheetName, row, dateIndex, transactionDate);

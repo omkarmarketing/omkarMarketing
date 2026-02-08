@@ -65,7 +65,7 @@ export function DatePicker({ value, onChange, className, placeholder = "Pick a d
           disabled={disabled}
           captionLayout="dropdown"
           fromYear={2020}
-          toYear={new Date().getFullYear() + 1}
+          toYear={new Date().getFullYear() + 10}
           defaultMonth={value}
         />
       </PopoverContent>
