@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   appendRow,
+  insertRowChronologically,
   getSheetValues,
   getSheetHeaders,
   ensureSheet,
@@ -11,6 +12,7 @@ import {
 import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
 import {
   getCurrentFinancialYearSheetName,
+  getFinancialYearSheetName,
   getCompanySheetName,
   getProductSheetName,
 } from "@/lib/sheets-helper";
@@ -48,12 +50,36 @@ export async function GET() {
   try {
     await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
-    const sheetName = getCurrentFinancialYearSheetName();
+    
+    // Get all sheets that start with "FY" (financial year sheets)
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId: sheetId,
+    });
+    
+    const fySheets = spreadsheet.data.sheets?.filter(
+      (s) => s.properties?.title?.startsWith("FY")
+    ) || [];
+    
+    const allRows: any[] = [];
+    
+    // Fetch data from all FY sheets
+    for (const sheet of fySheets) {
+      const sheetName = sheet.properties?.title || "";
+      if (sheetName) {
+        await ensureSheet(sheetId, sheetName);
+        const rows = await getSheetValues(sheetId, sheetName);
+        
+        // Add sheet name to each row for reference
+        const rowsWithSheet = rows.map((row: any) => ({
+          ...row,
+          _sheetName: sheetName
+        }));
+        
+        allRows.push(...rowsWithSheet);
+      }
+    }
 
-    await ensureSheet(sheetId, sheetName);
-    const rows = await getSheetValues(sheetId, sheetName);
-
-    // Fetch product data to map product codes to names
+    // Fetch product data to map product codes to names (once for all sheets)
     const productSheetName = getProductSheetName();
     const productRows = await getSheetValues(sheetId, productSheetName);
     const productMap = new Map();
@@ -67,8 +93,8 @@ export async function GET() {
       }
     });
 
-    // Map product codes to product names in the transactions
-    const mappedRows = rows.map((row: any) => {
+    // Map product codes to product names in all transactions
+    const mappedRows = allRows.map((row: any) => {
       let productCode = row.product || row.Product || "";
       let productName = productCode;
 
@@ -95,10 +121,12 @@ export async function POST(request: NextRequest) {
   try {
     await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
-    const sheetName = getCurrentFinancialYearSheetName();
-
     const body = await request.json();
     const data = transactionSchema.parse(body);
+    
+    // Use transaction date to determine which sheet to use
+    const transactionDate = new Date(data.date);
+    const sheetName = getFinancialYearSheetName(transactionDate);
 
     await ensureSheet(sheetId, sheetName);
 
@@ -185,7 +213,11 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    await appendRow(sheetId, sheetName, row);
+    // Find the date column index
+    const dateIndex = headers.indexOf("date");
+    
+    // Insert chronologically based on date
+    await insertRowChronologically(sheetId, sheetName, row, dateIndex, transactionDate);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -202,15 +234,17 @@ export async function PUT(request: NextRequest) {
   try {
     await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
-    const sheetName = getCurrentFinancialYearSheetName();
-
-    const { rowIndex, ...rawData } = await request.json();
+    const { rowIndex, date, ...rawData } = await request.json();
+    
+    // Use transaction date to determine which sheet to use
+    const transactionDate = new Date(date);
+    const sheetName = getFinancialYearSheetName(transactionDate);
+    
+    const data = transactionSchema.parse({ date, ...rawData });
 
     if (!rowIndex || rowIndex < 2) {
       throw new Error("Invalid row index");
     }
-
-    const data = transactionSchema.parse(rawData);
 
     await ensureSheet(sheetId, sheetName);
     const headers = await getSheetHeaders(sheetId, sheetName);

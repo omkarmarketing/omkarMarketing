@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import {
   Search,
   Download,
@@ -63,6 +64,8 @@ export function TransactionTable({
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20); // Show 20 items per page
   const { toast } = useToast();
 
   // Sort transactions by date (latest first), then filter based on search term
@@ -107,6 +110,12 @@ export function TransactionTable({
         transaction.remarks.toLowerCase().includes(searchLower))
     );
   });
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentTransactions = filteredTransactions.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
 
   useEffect(() => {
     async function fetchTransactions() {
@@ -437,7 +446,10 @@ export function TransactionTable({
                 <Input
                   placeholder="Search transactions..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1); // Reset to first page when searching
+                  }}
                   className="pl-10 w-full sm:w-64"
                 />
               </div>
@@ -499,7 +511,7 @@ export function TransactionTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTransactions.length === 0 ? (
+                  {currentTransactions.length === 0 ? (
                     <TableRow>
                       <TableCell
                         colSpan={10}
@@ -517,7 +529,7 @@ export function TransactionTable({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredTransactions.map((tx, idx) => {
+                    currentTransactions.map((tx, idx) => {
                       const qty = Number(tx.qty) || 0;
                       const price = Number(tx.price) || 0;
                       return (
@@ -613,6 +625,81 @@ export function TransactionTable({
                   )}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredTransactions.length)} of {filteredTransactions.length} entries
+              </div>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {/* Show first page */}
+                  {currentPage > 2 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Show ellipsis if needed */}
+                  {currentPage > 3 && (
+                    <PaginationItem>
+                      <span className="px-3 py-2 text-muted-foreground">...</span>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Show pages around current page */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pageNum = Math.max(1, Math.min(currentPage - 2 + i, totalPages));
+                    if (pageNum === currentPage) {
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink isActive>{pageNum}</PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink onClick={() => setCurrentPage(pageNum)}>
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  {/* Show ellipsis if needed */}
+                  {currentPage < totalPages - 2 && (
+                    <PaginationItem>
+                      <span className="px-3 py-2 text-muted-foreground">...</span>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Show last page */}
+                  {currentPage < totalPages - 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(totalPages)}>
+                        {totalPages}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
         </CardContent>

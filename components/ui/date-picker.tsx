@@ -24,8 +24,10 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ value, onChange, className, placeholder = "Pick a date", disabled, displayFormat = "PPP" }: DatePickerProps) {
+  const [open, setOpen] = React.useState(false);
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
@@ -52,8 +54,11 @@ export function DatePicker({ value, onChange, className, placeholder = "Pick a d
               // Set hours to noon to avoid timezone-related date shifts
               selected.setHours(12, 0, 0, 0);
               onChange?.(selected);
+              // Close the popover after selection
+              setOpen(false);
             } else {
               onChange?.(undefined);
+              setOpen(false);
             }
           }}
           initialFocus

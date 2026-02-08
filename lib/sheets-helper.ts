@@ -2,8 +2,12 @@
 
 export function getCurrentFinancialYearSheetName(): string {
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
+  return getFinancialYearSheetName(now);
+}
+
+export function getFinancialYearSheetName(date: Date): string {
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
 
   // Assuming financial year starts in April (common in India)
   const fy = month >= 4 ? year : year - 1

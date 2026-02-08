@@ -47,6 +47,74 @@ export async function appendRow(
   }
 }
 
+// Insert a row at the correct chronological position based on date
+export async function insertRowChronologically(
+  sheetId: string,
+  sheetName: string,
+  row: (string | number)[],
+  dateIndex: number, // Index of the date column in the row
+  newDate: Date, // The date of the new transaction
+): Promise<void> {
+  try {
+    // First, get all existing data
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${sheetName}'!A:Z`,
+    });
+
+    const values = response.data.values || [];
+    if (values.length === 0) {
+      // If sheet is empty, just append
+      await appendRow(sheetId, sheetName, row);
+      return;
+    }
+
+    const headers = values[0];
+    const dataRows = values.slice(1);
+    
+    // Find the correct insertion position
+    let insertPosition = dataRows.length; // Default to end
+    
+    for (let i = 0; i < dataRows.length; i++) {
+      const rowData = dataRows[i];
+      const existingDateStr = rowData[dateIndex];
+      
+      if (existingDateStr) {
+        // Parse the existing date (assuming format dd-mm-yy)
+        const [day, month, year] = existingDateStr.split("-").map(Number);
+        const fullYear = year < 50 ? 2000 + year : 1900 + year; // Handle 2-digit years
+        const existingDate = new Date(fullYear, month - 1, day);
+        
+        // If new date is earlier than existing date, insert here
+        if (newDate < existingDate) {
+          insertPosition = i;
+          break;
+        }
+      }
+    }
+    
+    // Insert at the correct position (1-based indexing, +1 for header row)
+    const insertRowIndex = insertPosition + 2; // +2 because 1-based and we have header row
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `'${sheetName}'!A${insertRowIndex}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [row],
+      },
+    });
+    
+  } catch (error) {
+    console.error("Error inserting row chronologically:", error);
+    throw new Error(
+      `Failed to insert row chronologically: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
 // Get all values from a sheet
 export async function getSheetValues(
   sheetId: string,
