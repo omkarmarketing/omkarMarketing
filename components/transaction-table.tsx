@@ -643,54 +643,64 @@ export function TransactionTable({
                     />
                   </PaginationItem>
                   
-                  {/* Show first page */}
-                  {currentPage > 2 && (
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
-                    </PaginationItem>
-                  )}
-                  
-                  {/* Show ellipsis if needed */}
-                  {currentPage > 3 && (
-                    <PaginationItem>
-                      <span className="px-3 py-2 text-muted-foreground">...</span>
-                    </PaginationItem>
-                  )}
-                  
-                  {/* Show pages around current page */}
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const pageNum = Math.max(1, Math.min(currentPage - 2 + i, totalPages));
-                    if (pageNum === currentPage) {
-                      return (
-                        <PaginationItem key={pageNum}>
-                          <PaginationLink isActive>{pageNum}</PaginationLink>
+                  {/* Pagination logic - show pages with smart truncation */}
+                  {(() => {
+                    const pages = [];
+                    
+                    // Always show first page if not already shown in range
+                    if (currentPage > 3) {
+                      pages.push(
+                        <PaginationItem key={1}>
+                          <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+                        </PaginationItem>
+                      );
+                      
+                      if (currentPage > 4) {
+                        pages.push(
+                          <PaginationItem key="ellipsis-start">
+                            <span className="px-3 py-2 text-muted-foreground">...</span>
+                          </PaginationItem>
+                        );
+                      }
+                    }
+                    
+                    // Show pages around current page
+                    const startPage = Math.max(1, currentPage - 2);
+                    const endPage = Math.min(totalPages, currentPage + 2);
+                    
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(
+                        <PaginationItem key={i}>
+                          {i === currentPage ? (
+                            <PaginationLink isActive>{i}</PaginationLink>
+                          ) : (
+                            <PaginationLink onClick={() => setCurrentPage(i)}>{i}</PaginationLink>
+                          )}
                         </PaginationItem>
                       );
                     }
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink onClick={() => setCurrentPage(pageNum)}>
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  })}
+                    
+                    // Show last page if needed
+                    if (currentPage < totalPages - 2) {
+                      if (currentPage < totalPages - 3) {
+                        pages.push(
+                          <PaginationItem key="ellipsis-end">
+                            <span className="px-3 py-2 text-muted-foreground">...</span>
+                          </PaginationItem>
+                        );
+                      }
+                      
+                      pages.push(
+                        <PaginationItem key={totalPages}>
+                          <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    
+                    return pages;
+                  })()}
                   
-                  {/* Show ellipsis if needed */}
-                  {currentPage < totalPages - 2 && (
-                    <PaginationItem>
-                      <span className="px-3 py-2 text-muted-foreground">...</span>
-                    </PaginationItem>
-                  )}
-                  
-                  {/* Show last page */}
-                  {currentPage < totalPages - 1 && (
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(totalPages)}>
-                        {totalPages}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )}
+
                   
                   <PaginationItem>
                     <PaginationNext 
