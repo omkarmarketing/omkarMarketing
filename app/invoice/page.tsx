@@ -34,9 +34,11 @@ export default function InvoicePage() {
             <PDFDownloadLink
               document={<InvoiceDocument data={invoiceData} />}
               fileName={fileName} // <-- ⬅️ Dynamic filename here
-              className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base w-full sm:w-auto text-center"
+              className="pdf-download-link px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base w-full sm:w-auto text-center"
             >
-              Download {fileName}
+              {({ loading }) =>
+                loading ? "Generating PDF..." : `Download ${fileName}`
+              }
             </PDFDownloadLink>
           </div>
         </div>

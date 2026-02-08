@@ -174,6 +174,19 @@ export function InvoiceForm({
 
       onInvoiceGenerated?.(data);
       toast({ title: "Invoice downloaded successfully" });
+      
+      // Reset form after successful generation
+      form.reset({
+        companyName: "",
+        companyCity: "",
+        startDate: "",
+        endDate: new Date().toISOString().split("T")[0],
+        brokerageRate: 2,
+      });
+      
+      // Clear preview
+      setInvoicePreview(null);
+      setShowPreview(false);
     } catch {
       toast({
         title: "Something went wrong",
@@ -317,7 +330,7 @@ export function InvoiceForm({
                   ) : (
                     <InvoiceSummaryPreview
                       summary={invoicePreview.summary}
-                      transactions={invoicePreview.transactions}
+                      transactions={invoicePreview.transactions || []}
                     />
                   )}
                 </div>
@@ -341,6 +354,7 @@ export function InvoiceForm({
                   disabled={
                     loading ||
                     !invoicePreview ||
+                    !invoicePreview.transactions ||
                     invoicePreview.transactions.length === 0
                   }
                 >

@@ -3,6 +3,7 @@ import { getSheetValues } from "@/lib/sheets";
 import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
 import { getCurrentFinancialYearSheetName } from "@/lib/sheets-helper";
 import { z } from "zod";
+import { parseDateFromSheet } from "@/lib/date-utils";
 
 // VALIDATION
 const invoiceRequestSchema = z.object({
@@ -38,11 +39,37 @@ export async function POST(request: NextRequest) {
     const paddedInvoice = `INV-${invoiceNumber.toString().padStart(3, "0")}`;
 
     // 🎯 Filter by date range + company name
+    // Convert start and end dates to Date objects for comparison
+    // Create date objects without time components for consistent comparison
+    const startDateObj = new Date(startDate);
+    const startCompare = new Date(
+      startDateObj.getFullYear(),
+      startDateObj.getMonth(),
+      startDateObj.getDate()
+    );
+
+    const endDateObj = new Date(endDate);
+    // For end date comparison, include the entire day by adding 1 day and subtracting 1 ms
+    const endDateTime = new Date(
+      endDateObj.getFullYear(),
+      endDateObj.getMonth(),
+      endDateObj.getDate() + 1
+    );
+    const endCompare = new Date(endDateTime.getTime() - 1);
+
     const filtered = cleanedRows.filter((tx) => {
-      const d = new Date(tx.date);
+      // Parse the transaction date from dd-mm-yy format using utility function
+      const d = parseDateFromSheet(tx.date);
+      // Create date object without time components for comparison
+      const transactionDate = new Date(
+        d.getFullYear(),
+        d.getMonth(),
+        d.getDate()
+      );
+
       return (
-        d >= new Date(startDate) &&
-        d <= new Date(endDate) &&
+        transactionDate >= startCompare &&
+        transactionDate <= endCompare &&
         (tx.buyerCompanyName === companyName ||
           tx.sellerCompanyName === companyName)
       );
@@ -71,12 +98,16 @@ export async function POST(request: NextRequest) {
         totalPayable, // FINAL BILL AMOUNT
       },
       transactions: filtered.map((tx) => ({
-        date: tx.date,
-        buyerCompanyName: tx.buyerCompanyName,
-        sellerCompanyName: tx.sellerCompanyName,
-        qty: tx.qty,
+        date: tx.date || "",
+        buyerCompanyName: tx.buyerCompanyName || "",
+        sellerCompanyName: tx.sellerCompanyName || "",
+        qty: tx.qty || 0,
+        price: 0, // Using 0 as default for this endpoint
+        remarks: "",
+        buyerCompanyCity: "",
+        sellerCompanyCity: "",
         rate: brokerageRate,
-        amount: tx.qty * brokerageRate, // PER LINE BROKERAGE
+        amount: (tx.qty || 0) * brokerageRate, // PER LINE BROKERAGE
       })),
     });
   } catch (error) {

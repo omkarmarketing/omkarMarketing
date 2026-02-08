@@ -161,6 +161,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // Get all sheets to find the specific sheet ID
+    const sheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: sheetId,
+    });
+    
+    const targetSheet = sheetInfo.data.sheets?.find(
+      (s) => s.properties?.title === sheetName
+    );
+    
+    if (!targetSheet || !targetSheet.properties?.sheetId) {
+      throw new Error('Sheet not found');
+    }
+    
+    const targetSheetId = targetSheet.properties.sheetId;
+    
     // Delete the specific row (companyIndex + 2 because row 1 is headers)
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: sheetId,
@@ -169,7 +184,7 @@ export async function DELETE(request: NextRequest) {
           {
             deleteDimension: {
               range: {
-                sheetId: await getSheetIdFromName(sheetId, sheetName),
+                sheetId: targetSheetId,
                 dimension: 'ROWS',
                 startIndex: companyIndex + 1, // 0-based index
                 endIndex: companyIndex + 2,   // exclusive end
@@ -192,24 +207,4 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// Helper function to get sheet ID from sheet name
-async function getSheetIdFromName(spreadsheetId: string, sheetName: string): Promise<number> {
-  try {
-    const response = await sheets.spreadsheets.get({
-      spreadsheetId: spreadsheetId,
-    });
-    
-    const sheet = response.data.sheets?.find(
-      (s) => s.properties?.title === sheetName
-    );
-    
-    return sheet?.properties?.sheetId || 0;
-  } catch (error) {
-    console.error('Error getting sheet ID:', error);
-    throw new Error(
-      `Failed to get sheet ID: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-  }
-}
+

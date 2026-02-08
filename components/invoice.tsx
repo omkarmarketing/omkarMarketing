@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Image,
 } from "@react-pdf/renderer";
+import { formatDateForDisplay } from "@/lib/date-utils";
 
 /* -------------------- HELPERS -------------------- */
 const formatAmount = (v: number) => Number(v).toFixed(2);
@@ -358,9 +359,6 @@ export const InvoiceDocument = ({ data }: any) => (
           <Text style={{ ...styles.annexCellRight, fontWeight: "bold" }}>
             Rate/Pc
           </Text>
-          <Text style={{ ...styles.annexCellRight, fontWeight: "bold" }}>
-            Amount
-          </Text>
           <Text style={{ ...styles.annexCell, fontWeight: "bold" }}>
             Remarks
           </Text>
@@ -368,19 +366,21 @@ export const InvoiceDocument = ({ data }: any) => (
 
         {data.transactions.map((t: any, i: number) => (
           <View key={i} style={styles.annexRow}>
-            <Text style={styles.annexCell}>{t.sellerCompanyName}</Text>
-            <Text style={styles.annexCell}>{t.sellerCompanyCity}</Text>
-            <Text style={styles.annexCell}>{t.date}</Text>
-            <Text style={styles.annexCell}>{t.buyerCompanyName}</Text>
-            <Text style={styles.annexCell}>{t.buyerCompanyCity}</Text>
-            <Text style={styles.annexCell}>{t.product.name}</Text>
-            <Text style={styles.annexCellRight}>{t.qty}</Text>
-            <Text style={styles.annexCellRight}>{formatAmount(t.price)}</Text>
-            <Text style={styles.annexCellRight}>{formatAmount(t.amount)}</Text>
+            <Text style={styles.annexCell}>{t.sellerCompanyName || ""}</Text>
+            <Text style={styles.annexCell}>{t.sellerCompanyCity || ""}</Text>
+            <Text style={styles.annexCell}>
+              {formatDateForDisplay(t.date || "")}
+            </Text>
+            <Text style={styles.annexCell}>{t.buyerCompanyName || ""}</Text>
+            <Text style={styles.annexCell}>{t.buyerCompanyCity || ""}</Text>
+            <Text style={styles.annexCell}>{t.product || ""}</Text>
+            <Text style={styles.annexCellRight}>{t.qty || 0}</Text>
+            <Text style={styles.annexCellRight}>
+              {formatAmount(t.price || 0)}
+            </Text>
             <Text style={styles.annexCell}>{t.remarks || ""}</Text>
           </View>
         ))}
-
         {/* SUMMARY */}
 
         {/* TOTAL QTY */}

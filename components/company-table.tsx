@@ -44,7 +44,12 @@ export function CompanyTable({ refreshTrigger = 0 }: CompanyTableProps) {
       setIsLoading(true)
       try {
         const response = await fetch("/api/company")
-        if (!response.ok) throw new Error("Failed to fetch companies")
+        if (!response.ok) {
+          // Handle 404 or other errors gracefully
+          console.warn("Company API returned", response.status, ", using empty array");
+          setCompanies([])
+          return
+        }
         const data = await response.json()
         // Add index to each company
         const companiesWithIndex = data.map((company: any, idx: number) => ({

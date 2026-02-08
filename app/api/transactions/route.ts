@@ -15,6 +15,7 @@ import {
   getProductSheetName,
 } from "@/lib/sheets-helper";
 import { z } from "zod";
+import { parseDateFromSheet } from "@/lib/date-utils";
 
 /* -------------------- SCHEMA -------------------- */
 // ❌ city removed – backend derives it
@@ -144,14 +145,20 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Map product name to product code if product name exists in the map
+    // Map product code to product name if product code exists in the map
     let productValue = data.product;
-    for (const [code, name] of productMap.entries()) {
-      if (name === data.product) {
-        productValue = code; // Store product code instead of name
-        break;
-      }
+    if (productMap.has(data.product)) {
+      productValue = productMap.get(data.product); // Store product name instead of code
     }
+
+    // Format date as dd-mm-yy for storage in Google Sheets
+    const formattedDate = (() => {
+      const dateObj = new Date(data.date);
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const year = String(dateObj.getFullYear()).slice(-2);
+      return `${day}-${month}-${year}`;
+    })();
 
     const row = headers.map((h) => {
       switch (h) {
@@ -160,7 +167,7 @@ export async function POST(request: NextRequest) {
         case "sellerCompanyCity":
           return sellerCity;
         case "date":
-          return data.date;
+          return formattedDate;
         case "buyerCompanyName":
           return data.buyerCompanyName;
         case "buyerCompanyCity":
@@ -229,14 +236,20 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    // Map product name to product code if product name exists in the map
+    // Map product code to product name if product code exists in the map
     let productValue = data.product;
-    for (const [code, name] of productMap.entries()) {
-      if (name === data.product) {
-        productValue = code; // Store product code instead of name
-        break;
-      }
+    if (productMap.has(data.product)) {
+      productValue = productMap.get(data.product); // Store product name instead of code
     }
+
+    // Format date as dd-mm-yy for storage in Google Sheets
+    const formattedDate = (() => {
+      const dateObj = new Date(data.date);
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const year = String(dateObj.getFullYear()).slice(-2);
+      return `${day}-${month}-${year}`;
+    })();
 
     const row = headers.map((h) => {
       switch (h) {
@@ -245,7 +258,7 @@ export async function PUT(request: NextRequest) {
         case "sellerCompanyCity":
           return sellerCity;
         case "date":
-          return data.date;
+          return formattedDate;
         case "buyerCompanyName":
           return data.buyerCompanyName;
         case "buyerCompanyCity":
@@ -298,5 +311,139 @@ export async function DELETE(request: NextRequest) {
       { error: error instanceof Error ? error.message : "Delete failed" },
       { status: 500 }
     );
+  }
+}
+
+/* -------------------- INVOICE GENERATION -------------------- */
+export async function generateInvoice(companyName: string) {
+  try {
+    const sheetId = await getSheetIdForUser();
+    const sheetName = getCurrentFinancialYearSheetName();
+
+    await ensureSheet(sheetId, sheetName);
+    const rows = await getSheetValues(sheetId, sheetName);
+
+    // Filter transactions for the given company
+    const filteredTransactions = rows.filter((row: any) => {
+      return (
+        row.buyerCompanyName === companyName ||
+        row.sellerCompanyName === companyName
+      );
+    });
+
+    // Fetch product data to map product codes to names
+    const productSheetName = getProductSheetName();
+    const productRows = await getSheetValues(sheetId, productSheetName);
+    const productMap = new Map();
+    productRows.forEach((p: any) => {
+      const productCode =
+        p.productCode || p["productCode"] || p["Product Code"] || "";
+      const productName =
+        p.productName || p["productName"] || p["Product Name"] || "";
+      if (productCode) {
+        productMap.set(productCode, productName);
+      }
+    });
+
+    // Map product codes to product names in the transactions
+    const mappedTransactions = filteredTransactions.map((row: any) => {
+      let productCode = row.product || row.Product || "";
+      let productName = productCode;
+
+      // If productCode exists in the map, use the product name instead
+      if (productMap.has(productCode)) {
+        productName = productMap.get(productCode);
+      }
+
+      return {
+        ...row,
+        product: productName,
+      };
+    });
+
+    // Calculate totals
+    const totalQuantity = mappedTransactions.reduce(
+      (sum: number, row: any) => sum + (row.qty || 0),
+      0
+    );
+    const brokerageRate = 2.5;
+    const brokerageAmount = totalQuantity * brokerageRate;
+
+    const otherSideBrokerage = mappedTransactions.reduce(
+      (sum: number, row: any) => {
+        if (row.sellerCompanyName === companyName) {
+          return sum + (parseFloat(row.remarks) || 0);
+        }
+        return sum;
+      },
+      0
+    );
+
+    const totalPayable = brokerageAmount + otherSideBrokerage;
+
+    // Generate invoice details
+    const invoiceNumber = `INV-${String(Date.now()).slice(-6)}`;
+
+    if (mappedTransactions.length === 0) {
+      return {
+        invoiceNumber: "INV-000000",
+        dateRange: "N/A",
+        totalQuantity: 0,
+        brokerageAmount: 0,
+        otherSideBrokerage: 0,
+        totalPayable: 0,
+        transactions: [],
+      };
+    }
+
+    const transactionDates = mappedTransactions.map((row: any) => {
+      const date =
+        typeof row.date === "string" ? parseDateFromSheet(row.date) : row.date;
+      // Use date without time components for consistent comparison
+      return new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate()
+      ).getTime();
+    });
+    const earliestDate = new Date(Math.min(...transactionDates));
+    const latestDate = new Date(Math.max(...transactionDates));
+
+    // Format dates for display without time components
+    const formatDateForDisplay = (date: Date) => {
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+
+    const earliestFormatted = formatDateForDisplay(earliestDate);
+    const latestFormatted = formatDateForDisplay(latestDate);
+
+    const invoice = {
+      invoiceNumber,
+      dateRange: `${earliestFormatted} - ${latestFormatted}`,
+      totalQuantity,
+      brokerageAmount,
+      otherSideBrokerage,
+      totalPayable,
+      transactions: mappedTransactions.map((row: any) => ({
+        date: row.date || "",
+        buyerCompanyName: row.buyerCompanyName || "",
+        sellerCompanyName: row.sellerCompanyName || "",
+        product: row.product || "",
+        qty: row.qty || 0,
+        price: row.price || 0,
+        remarks: row.remarks || "",
+        buyerCompanyCity: row.buyerCompanyCity || "",
+        sellerCompanyCity: row.sellerCompanyCity || "",
+        amount: (row.qty || 0) * (row.price || 0),
+      })),
+    };
+
+    return invoice;
+  } catch (error) {
+    console.error("Invoice generation error:", error);
+    throw new Error("Failed to generate invoice");
   }
 }

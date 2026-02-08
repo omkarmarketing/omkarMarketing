@@ -89,8 +89,18 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
           fetch("/api/product"),
         ]);
 
-        if (companiesRes.ok) setCompanies(await companiesRes.json());
-        if (productsRes.ok) setProducts(await productsRes.json());
+        if (companiesRes.ok) {
+          setCompanies(await companiesRes.json());
+        } else {
+          console.warn("Company API returned", companiesRes.status, ", using empty array");
+          setCompanies([]);
+        }
+        if (productsRes.ok) {
+          setProducts(await productsRes.json());
+        } else {
+          console.warn("Product API returned", productsRes.status, ", using empty array");
+          setProducts([]);
+        }
       } catch (error) {
         console.error("Failed to fetch data:", error);
       }
@@ -164,7 +174,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
 
   // Handle product selection from suggestions
   const selectProduct = (product: Product) => {
-    form.setValue("product", product.productCode);
+    form.setValue("product", product.productName);
     setProductInputValue(`${product.productName} (${product.productCode})`);
     setShowProductSuggestions(false);
   };
@@ -253,7 +263,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
       if (lastTransaction.product) {
         form.setValue("product", lastTransaction.product);
         const product = products.find(
-          (p) => p.productCode === lastTransaction.product
+          (p) => p.productName === lastTransaction.product
         );
         if (product) {
           setProductInputValue(

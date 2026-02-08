@@ -29,6 +29,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { parseDateFromSheet } from "@/lib/date-utils";
 
 interface Transaction {
   date: string;
@@ -44,24 +45,10 @@ interface Transaction {
 }
 
 // Helper function to format date as dd/mm/yyyy
+import { formatDateForDisplay } from "@/lib/date-utils";
+
 function formatDate(dateString: string): string {
-  if (!dateString) return "";
-
-  // If already in dd/mm/yyyy format, return as is
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
-    return dateString;
-  }
-
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) {
-    return dateString; // Return original if not a valid date
-  }
-
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-
-  return `${day}/${month}/${year}`;
+  return formatDateForDisplay(dateString);
 }
 
 interface TransactionTableProps {
@@ -80,15 +67,27 @@ export function TransactionTable({
 
   // Sort transactions by date (latest first), then filter based on search term
   const sortedTransactions = [...transactions].sort((a, b) => {
-    // Convert dates to proper format for comparison
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
+    // Convert dates to proper format for comparison using utility function
+    const dateA = parseDateFromSheet(a.date);
+    const dateB = parseDateFromSheet(b.date);
+
+    // Create date objects without time for consistent comparison
+    const dateACompare = new Date(
+      dateA.getFullYear(),
+      dateA.getMonth(),
+      dateA.getDate()
+    );
+    const dateBCompare = new Date(
+      dateB.getFullYear(),
+      dateB.getMonth(),
+      dateB.getDate()
+    );
 
     // Handle invalid dates by putting them at the end
-    if (isNaN(dateA.getTime())) return 1;
-    if (isNaN(dateB.getTime())) return -1;
+    if (isNaN(dateACompare.getTime())) return 1;
+    if (isNaN(dateBCompare.getTime())) return -1;
 
-    return dateB.getTime() - dateA.getTime(); // Descending order (latest first)
+    return dateBCompare.getTime() - dateACompare.getTime(); // Descending order (latest first)
   });
 
   const filteredTransactions = sortedTransactions.filter((transaction) => {
