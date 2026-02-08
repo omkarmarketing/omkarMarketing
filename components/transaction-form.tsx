@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Card,
   CardContent,
@@ -305,7 +306,13 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
                 <FormItem>
                   <FormLabel>Date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} disabled={isLoading} />
+                    <DatePicker 
+                      value={field.value ? new Date(field.value) : undefined}
+                      onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                      placeholder="Select date"
+                      disabled={isLoading}
+                      displayFormat="dd/MM/yyyy"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

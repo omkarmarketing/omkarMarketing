@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     remarks: r.remarks || "",
   }));
 
-  /* -------------------- FILTER TRANSACTIONS -------------------- */
+  /* -------------------- OPTIMIZED FILTERING -------------------- */
   // Convert start and end dates to Date objects for comparison
   // Create date objects without time components for consistent comparison
   const startDateObj = new Date(startDate);
@@ -64,24 +64,32 @@ export async function POST(req: NextRequest) {
   );
   const endCompare = new Date(endDateTime.getTime() - 1);
 
+  // Pre-calculate normalized company name
   const targetNormalized = normalizeCompanyName(companyName);
 
-  const filtered = cleanedRows.filter((tx) => {
-    // Parse the transaction date from dd-mm-yy format using utility function
-    const d = parseDateFromSheet(tx.date);
-    // Create date object without time components for comparison
-    const transactionDate = new Date(
-      d.getFullYear(),
-      d.getMonth(),
-      d.getDate()
+  // Pre-parse all dates to avoid repeated parsing
+  const parsedDates = cleanedRows.map(row => {
+    const parsedDate = parseDateFromSheet(row.date);
+    return new Date(
+      parsedDate.getFullYear(),
+      parsedDate.getMonth(),
+      parsedDate.getDate()
     );
+  });
 
-    const dateMatches = transactionDate >= startCompare && transactionDate <= endCompare;
-    if (!dateMatches) return false;
+  // Filter transactions with optimized matching
+  const filteredIndices = [];
+  for (let i = 0; i < cleanedRows.length; i++) {
+    const transactionDate = parsedDates[i];
+    
+    // Quick date check first
+    if (transactionDate < startCompare || transactionDate > endCompare) {
+      continue;
+    }
 
-    // Normalizing names for robust matching
-    const sellerNormalized = normalizeCompanyName(tx.sellerCompanyName);
-    const buyerNormalized = normalizeCompanyName(tx.buyerCompanyName);
+    // Normalize company names for matching
+    const sellerNormalized = normalizeCompanyName(cleanedRows[i].sellerCompanyName);
+    const buyerNormalized = normalizeCompanyName(cleanedRows[i].buyerCompanyName);
 
     // Check if either the sanitized names match exactly or one is a substring of the other
     const sellerMatches =
@@ -94,8 +102,34 @@ export async function POST(req: NextRequest) {
       (buyerNormalized.length > 5 && targetNormalized.includes(buyerNormalized)) ||
       (targetNormalized.length > 5 && buyerNormalized.includes(targetNormalized));
 
-    return sellerMatches || buyerMatches;
-  });
+    if (sellerMatches || buyerMatches) {
+      filteredIndices.push(i);
+    }
+  }
+
+  // Create filtered array using indices
+  const filtered = filteredIndices.map(i => cleanedRows[i]);
+
+  // Performance safeguard: if too many transactions, return early with warning
+  if (filtered.length > 5000) {
+    return NextResponse.json({
+      success: false,
+      error: `Too many transactions (${filtered.length}) for this date range. Please select a smaller date range.`,
+      summary: {
+        invoiceNo: isPreview ? "PREVIEW" : "INV-000",
+        companyName,
+        companyCity: "",
+        invoiceDate: new Date().toLocaleDateString("en-GB"),
+        dateRange: { start: startDate, end: endDate },
+        brokerageRate,
+        totalQty: 0,
+        brokerageAmount: 0,
+        otherSideBrokerage: 0,
+        totalPayable: 0,
+      },
+      transactions: [],
+    }, { status: 400 });
+  }
 
   /* -------------------- CALCULATIONS (SOURCE OF TRUTH) -------------------- */
   if (filtered.length === 0) {

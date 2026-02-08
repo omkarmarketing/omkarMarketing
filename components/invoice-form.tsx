@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
   FormControl,
@@ -43,8 +44,10 @@ export function InvoiceForm({
 
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [invoiceProgress, setInvoiceProgress] = useState<{ status: string; progress: number } | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [dateRangeWarning, setDateRangeWarning] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -117,7 +120,24 @@ export function InvoiceForm({
 
   /* -------------------- PREVIEW -------------------- */
   const fetchPreview = async (values: any) => {
+    // Validate date range before proceeding
+    if (values.startDate && values.endDate) {
+      const startDate = new Date(values.startDate);
+      const endDate = new Date(values.endDate);
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays > 365) { // More than 1 year
+        setDateRangeWarning(`Date range is ${diffDays} days. This may take a long time to process. Consider selecting a smaller range.`);
+      } else if (diffDays > 180) { // More than 6 months
+        setDateRangeWarning(`Date range is ${diffDays} days. Processing may take some time.`);
+      } else {
+        setDateRangeWarning(null);
+      }
+    }
+    
     setPreviewLoading(true);
+    setInvoiceProgress({ status: "Loading preview data...", progress: 50 });
     try {
       const res = await fetch("/api/invoice/generate", {
         method: "POST",
@@ -125,6 +145,8 @@ export function InvoiceForm({
         body: JSON.stringify({ ...values, isPreview: true }),
       });
 
+      setInvoiceProgress({ status: "Processing preview...", progress: 80 });
+      
       if (!res.ok) {
         setInvoicePreview({
           summary: {
@@ -149,12 +171,27 @@ export function InvoiceForm({
       });
     } finally {
       setPreviewLoading(false);
+      setInvoiceProgress(null);
     }
   };
 
   /* -------------------- SUBMIT -------------------- */
   const onSubmit = async (values: any) => {
+    // Validate date range before proceeding
+    if (values.startDate && values.endDate) {
+      const startDate = new Date(values.startDate);
+      const endDate = new Date(values.endDate);
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays > 365) { // More than 1 year
+        const confirmed = window.confirm(`You're generating an invoice for ${diffDays} days. This may take a long time to process. Are you sure you want to continue?`);
+        if (!confirmed) return;
+      }
+    }
+    
     setLoading(true);
+    setInvoiceProgress({ status: "Starting invoice generation...", progress: 10 });
     try {
       const res = await fetch("/api/invoice/generate", {
         method: "POST",
@@ -162,6 +199,8 @@ export function InvoiceForm({
         body: JSON.stringify(values),
       });
 
+      setInvoiceProgress({ status: "Processing data...", progress: 60 });
+      
       const data = await res.json();
 
       if (!data.success) {
@@ -172,6 +211,8 @@ export function InvoiceForm({
         return;
       }
 
+      setInvoiceProgress({ status: "Generating PDF...", progress: 90 });
+      
       onInvoiceGenerated?.(data);
       toast({ title: "Invoice downloaded successfully" });
       
@@ -194,6 +235,7 @@ export function InvoiceForm({
       });
     } finally {
       setLoading(false);
+      setInvoiceProgress(null);
     }
   };
 
@@ -275,6 +317,13 @@ export function InvoiceForm({
 
               {/* DATES + RATE */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {dateRangeWarning && (
+                  <div className="col-span-full">
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700">
+                      ⚠️ {dateRangeWarning}
+                    </div>
+                  </div>
+                )}
                 <FormField
                   name="startDate"
                   control={form.control}
@@ -282,8 +331,14 @@ export function InvoiceForm({
                     <FormItem>
                       <FormLabel>Start Date</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} className="h-11" />
+                        <DatePicker 
+                          value={field.value ? new Date(field.value) : undefined}
+                          onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                          placeholder="Select start date"
+                          displayFormat="dd/MM/yyyy"
+                        />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -295,8 +350,14 @@ export function InvoiceForm({
                     <FormItem>
                       <FormLabel>End Date</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} className="h-11" />
+                        <DatePicker 
+                          value={field.value ? new Date(field.value) : undefined}
+                          onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                          placeholder="Select end date"
+                          displayFormat="dd/MM/yyyy"
+                        />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -345,9 +406,22 @@ export function InvoiceForm({
                   onClick={() => fetchPreview(form.getValues())}
                   disabled={previewLoading}
                 >
-                  {previewLoading ? <Spinner /> : "See Preview"}
+                  {previewLoading ? <><Spinner className="mr-2 h-4 w-4" /> Loading...</> : "See Preview"}
                 </Button>
 
+                {invoiceProgress && (
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-in-out"
+                      style={{ width: `${invoiceProgress.progress}%` }}
+                    ></div>
+                  </div>
+                )}
+                {invoiceProgress && (
+                  <div className="text-sm text-muted-foreground mb-4 text-center">
+                    {invoiceProgress.status}
+                  </div>
+                )}
                 <Button
                   type="submit"
                   className="flex-1"

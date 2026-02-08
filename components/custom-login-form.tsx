@@ -65,7 +65,7 @@ export function CustomLoginForm() {
           title: "Login successful",
           description: "Welcome back!",
         });
-        router.push("/company");
+        router.push("/transactions");
       } else {
         toast({
           title: "Login failed",
@@ -89,6 +89,9 @@ export function CustomLoginForm() {
   return (
     <Card className="w-full max-w-md bg-card rounded-lg shadow-lg border border-border">
       <CardHeader className="space-y-1 text-center">
+        <CardTitle className="text-2xl font-bold text-foreground">
+          Omkar Marketing
+        </CardTitle>
 
         <CardDescription className="text-muted-foreground">
           Sign in to your account

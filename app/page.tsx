@@ -11,7 +11,7 @@ export default function HomePage() {
   useEffect(() => {
     if (isLoaded) {
       if (user) {
-        router.push("/company");
+        router.push("/transactions");
       } else {
         router.push("/login");
       }
