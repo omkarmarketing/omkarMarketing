@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSheetValues, getNextInvoiceNumber } from "@/lib/sheets";
-import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
+import { verifyUserAccess, getSheetIdForUser, isAmit } from "@/lib/auth";
 import { getCurrentFinancialYearSheetName } from "@/lib/sheets-helper";
 import { z } from "zod";
 import { parseDateFromSheet } from "@/lib/date-utils";
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
     product: r.product,
     qty: Number(r.qty) || 0,
     price: Number(r.price) || 0,
+    brokerageRate: Number(r.brokerageRate || r["brokerageRate"] || 0),
     remarks: r.remarks || "",
   }));
 
@@ -199,7 +200,10 @@ export async function POST(req: NextRequest) {
   }
 
   const totalQty = filtered.reduce((s, r) => s + r.qty, 0);
-  const brokerageAmount = totalQty * brokerageRate;
+  const amit = await isAmit();
+  const brokerageAmount = amit
+    ? filtered.reduce((sum, r) => sum + (r.qty * r.brokerageRate), 0)
+    : totalQty * brokerageRate;
 
   // Pre-calculate normalized target for other side brokerage check
   const targetNameLower = companyName.toLowerCase();
@@ -236,6 +240,7 @@ export async function POST(req: NextRequest) {
       brokerageAmount,
       otherSideBrokerage,
       totalPayable,
+      isAmit: amit,
     },
     transactions: filtered.map((t) => ({
       date: t.date || "",
@@ -247,7 +252,8 @@ export async function POST(req: NextRequest) {
       remarks: t.remarks || "",
       buyerCompanyCity: t.buyerCompanyCity || "",
       sellerCompanyCity: t.sellerCompanyCity || "",
-      amount: (t.qty || 0) * brokerageRate,
+      brokerageRate: amit ? t.brokerageRate : brokerageRate,
+      amount: amit ? (t.qty || 0) * (t.brokerageRate || 0) : (t.qty || 0) * brokerageRate,
     })),
   });
 }
