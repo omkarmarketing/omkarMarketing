@@ -282,16 +282,35 @@ export function InvoiceForm({
   /* -------------------- UI -------------------- */
   return (
     <div className="max-w-4xl mx-auto px-4">
-      <Card className="rounded-xl shadow-md border">
-        <CardHeader>
-          <CardTitle className="text-xl">Generate Brokerage Invoice</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Fill details → Preview → Download
-          </p>
+      <Form {...form}>
+        <Card className="rounded-xl shadow-md border">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div className="space-y-1">
+            <CardTitle className="text-xl">Generate Brokerage Invoice</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Fill details → Preview → Download
+            </p>
+          </div>
+          <FormField
+            name="isManual"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value}
+                    onChange={field.onChange}
+                    className="h-5 w-5 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                  />
+                </FormControl>
+                <FormLabel className="text-sm font-medium cursor-pointer">Manual Mode</FormLabel>
+              </FormItem>
+            )}
+          />
         </CardHeader>
 
         <CardContent>
-          <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* COMPANY */}
               <FormField
@@ -355,29 +374,6 @@ export function InvoiceForm({
                 )}
               />
 
-              {/* MANUAL MODE TOGGLE */}
-              <FormField
-                name="isManual"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/50">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base font-semibold">Manual Mode</FormLabel>
-                      <p className="text-sm text-muted-foreground">
-                        Enter custom description and amount (no transactions)
-                      </p>
-                    </div>
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        checked={field.value}
-                        onChange={field.onChange}
-                        className="h-6 w-6 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-600"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
 
               {/* DATES + RATE (Automated Mode) */}
               {!form.watch("isManual") ? (
@@ -508,7 +504,7 @@ export function InvoiceForm({
               )}
 
               {/* PREVIEW */}
-              {showPreview && (
+              {showPreview && !form.watch("isManual") && (
                 <div className="rounded-xl border bg-gray-50 p-5">
                   {previewLoading ? (
                     <div className="flex justify-center py-10">
@@ -525,19 +521,27 @@ export function InvoiceForm({
 
               {/* ACTIONS */}
               <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => fetchPreview(form.getValues())}
-                  disabled={previewLoading}
-                >
-                  {previewLoading ? <><Spinner className="mr-2 h-4 w-4" /> Loading...</> : "See Preview"}
-                </Button>
+                {!form.watch("isManual") && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => fetchPreview(form.getValues())}
+                    disabled={previewLoading}
+                  >
+                    {previewLoading ? (
+                      <>
+                        <Spinner className="mr-2 h-4 w-4" /> Loading...
+                      </>
+                    ) : (
+                      "See Preview"
+                    )}
+                  </Button>
+                )}
 
                 {invoiceProgress && (
                   <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                    <div 
+                    <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-in-out"
                       style={{ width: `${invoiceProgress.progress}%` }}
                     ></div>
@@ -553,18 +557,19 @@ export function InvoiceForm({
                   className="flex-1"
                   disabled={
                     loading ||
-                    !invoicePreview ||
-                    (!form.watch("isManual") && 
-                      (!invoicePreview.transactions || invoicePreview.transactions.length === 0))
+                    (!form.watch("isManual") &&
+                      (!invoicePreview ||
+                        !invoicePreview.transactions ||
+                        invoicePreview.transactions.length === 0))
                   }
                 >
                   {loading ? <Spinner /> : "Download Invoice"}
                 </Button>
               </div>
             </form>
-          </Form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </Form>
     </div>
   );
 }
