@@ -47,6 +47,7 @@ export function InvoiceForm({
   const [invoiceProgress, setInvoiceProgress] = useState<{ status: string; progress: number } | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [isAmit, setIsAmit] = useState(false);
   const [dateRangeWarning, setDateRangeWarning] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof schema>>({
@@ -59,6 +60,16 @@ export function InvoiceForm({
       brokerageRate: 2,
     },
   });
+
+  /* -------------------- FETCH USER INFO -------------------- */
+  useEffect(() => {
+    fetch("/api/user-info")
+      .then((res) => res.json())
+      .then((data) => {
+        setIsAmit(data.email === "amitraval1681@gmail.com");
+      })
+      .catch(console.error);
+  }, []);
 
   /* -------------------- FETCH COMPANIES -------------------- */
   useEffect(() => {
@@ -345,23 +356,25 @@ export function InvoiceForm({
                   )}
                 />
 
-                <FormField
-                  name="brokerageRate"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Brokerage (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          className="h-11"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+                {!isAmit && (
+                  <FormField
+                    name="brokerageRate"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Brokerage (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            className="h-11"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
 
               {/* PREVIEW */}

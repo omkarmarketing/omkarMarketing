@@ -13,6 +13,7 @@ import { z } from "zod";
 const productSchema = z.object({
   productCode: z.string().min(1, "Product code is required"),
   productName: z.string().min(1, "Product name is required"),
+  brokerageRate: z.coerce.number().optional().default(0),
 });
 
 export async function GET() {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     let headers = await getSheetHeaders(sheetId, sheetName);
     if (headers.length === 0) {
-      headers = ["productCode", "productName"];
+      headers = ["productCode", "productName", "brokerageRate"];
       // Set the headers in the sheet
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
     const row = headers.map((header) => {
       if (header === "productCode") return productCode;
       if (header === "productName") return productName;
+      if (header === "brokerageRate") return body.brokerageRate || 0;
       return "";
     });
 
@@ -108,6 +110,7 @@ export async function PUT(request: NextRequest) {
     const updatedRow = headers.map((header) => {
       if (header === "productCode") return productCode;
       if (header === "productName") return productName;
+      if (header === "brokerageRate") return data.brokerageRate || 0;
       return products[productIndex][header] || ""; // Preserve other fields if any
     });
 

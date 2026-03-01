@@ -11,6 +11,7 @@ import { ProductForm } from "./product-form"
 interface Product {
   productCode: string
   productName: string
+  brokerageRate?: string | number
 }
 
 interface ProductTableProps {
@@ -20,6 +21,7 @@ interface ProductTableProps {
 interface Product {
   productCode: string
   productName: string
+  brokerageRate?: string | number
   id?: number // Index of the product in the sheet
 }
 
@@ -37,6 +39,7 @@ export function ProductTable({ refreshTrigger = 0 }: ProductTableProps) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isAmit, setIsAmit] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -64,6 +67,14 @@ export function ProductTable({ refreshTrigger = 0 }: ProductTableProps) {
     }
 
     fetchProducts()
+
+    // Fetch user info to check if it's Amit
+    fetch("/api/user-info")
+      .then((res) => res.json())
+      .then((data) => {
+        setIsAmit(data.email === "amitraval1681@gmail.com")
+      })
+      .catch(console.error)
   }, [refreshTrigger, toast])
 
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading products...</div>
@@ -126,6 +137,7 @@ export function ProductTable({ refreshTrigger = 0 }: ProductTableProps) {
               onSuccess={onSave}
               initialData={{
                 ...product,
+                brokerageRate: Number(product.brokerageRate || 0),
               }}
             />
           </div>
@@ -151,6 +163,7 @@ export function ProductTable({ refreshTrigger = 0 }: ProductTableProps) {
                 <TableRow>
                   <TableHead>Product Code</TableHead>
                   <TableHead>Product Name</TableHead>
+                  {isAmit && <TableHead>Brokerage Rate</TableHead>}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -159,6 +172,7 @@ export function ProductTable({ refreshTrigger = 0 }: ProductTableProps) {
                   <TableRow key={idx}>
                     <TableCell className="font-medium">{product.productCode}</TableCell>
                     <TableCell>{product.productName}</TableCell>
+                    {isAmit && <TableCell>{product.brokerageRate || 0}</TableCell>}
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button

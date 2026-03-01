@@ -41,3 +41,8 @@ export async function verifyUserAccess() {
 
   return email
 }
+export async function isAmit() {
+  const user = await currentUser()
+  const email = user?.emailAddresses[0]?.emailAddress
+  return email === process.env.NEXT_PUBLIC_CLERK_EMAIL_USER2
+}

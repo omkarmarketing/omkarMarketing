@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 const productSchema = z.object({
   productCode: z.string().min(1, "Product code is required"),
   productName: z.string().min(1, "Product name is required"),
+  brokerageRate: z.coerce.number().optional().default(0),
 })
 
 type ProductFormValues = z.infer<typeof productSchema>
@@ -24,6 +25,7 @@ interface ProductFormProps {
 
 export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [isAmit, setIsAmit] = useState(false)
   const { toast } = useToast()
 
   const form = useForm<ProductFormValues>({
@@ -31,7 +33,18 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
     defaultValues: {
       productCode: initialData?.productCode || "",
       productName: initialData?.productName || "",
+      brokerageRate: initialData?.brokerageRate || 0,
     },
+  })
+
+  // Fetch user info to check if it's Amit
+  useState(() => {
+    fetch("/api/user-info")
+      .then((res) => res.json())
+      .then((data) => {
+        setIsAmit(data.email === "amitraval1681@gmail.com")
+      })
+      .catch(console.error)
   })
 
   async function onSubmit(values: ProductFormValues) {
@@ -120,6 +133,27 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
                 </FormItem>
               )}
             />
+            {isAmit && (
+              <FormField
+                control={form.control}
+                name="brokerageRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Brokerage Rate</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="Enter brokerage rate" 
+                        {...field} 
+                        disabled={isLoading} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <Button type="submit" disabled={isLoading} className="w-full">
               {isLoading ? "Adding..." : "Add Product"}
             </Button>

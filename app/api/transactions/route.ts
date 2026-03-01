@@ -30,7 +30,8 @@ const transactionSchema = z.object({
   product: z.string().min(1),
   qty: z.coerce.number().positive(),
   price: z.coerce.number().positive(),
-  remarks: z.string().nullable().optional(), // ✅ FIX
+  remarks: z.string().nullable().optional(),
+  brokerageRate: z.coerce.number().optional().default(0),
 });
 
 /* -------------------- HELPERS -------------------- */
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest) {
             "qty",
             "price",
             "remarks",
+            "brokerageRate",
           ];
 
     if (headers.length === 0) {
@@ -156,6 +158,16 @@ export async function POST(request: NextRequest) {
         valueInputOption: "USER_ENTERED",
         requestBody: { values: [finalHeaders] },
       });
+    } else if (!headers.includes("brokerageRate")) {
+      // Append brokerageRate column to existing headers
+      const nextColumnLetter = String.fromCharCode(65 + headers.length);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `'${sheetName}'!${nextColumnLetter}1`,
+        valueInputOption: "USER_ENTERED",
+        requestBody: { values: [["brokerageRate"]] },
+      });
+      finalHeaders.push("brokerageRate");
     }
 
     const buyerCity = data.buyerCity;
@@ -210,6 +222,8 @@ export async function POST(request: NextRequest) {
           return data.price;
         case "remarks":
           return data.remarks ?? "";
+        case "brokerageRate":
+          return data.brokerageRate ?? 0;
         default:
           return "";
       }
@@ -307,6 +321,8 @@ export async function PUT(request: NextRequest) {
           return data.price;
         case "remarks":
           return data.remarks || "";
+        case "brokerageRate":
+          return data.brokerageRate ?? 0;
         default:
           return "";
       }

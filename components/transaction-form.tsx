@@ -34,6 +34,7 @@ const transactionSchema = z.object({
   qty: z.coerce.number().int().positive("Quantity must be a positive integer"),
   price: z.coerce.number().positive("Price must be positive"),
   remarks: z.string().optional(),
+  brokerageRate: z.coerce.number().min(0).optional().default(0),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -50,6 +51,7 @@ interface Company {
 interface Product {
   productCode: string;
   productName: string;
+  brokerageRate?: string | number;
 }
 
 export function TransactionForm({ onSuccess }: TransactionFormProps) {
@@ -65,6 +67,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const [showSellerSuggestions, setShowSellerSuggestions] = useState(false);
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
   const [productInputValue, setProductInputValue] = useState("");
+  const [isAmit, setIsAmit] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<TransactionFormValues>({
@@ -79,28 +82,29 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
       qty: 1,
       price: 0,
       remarks: "",
+      brokerageRate: 0,
     },
   });
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [companiesRes, productsRes] = await Promise.all([
+        const [companiesRes, productsRes, userRes] = await Promise.all([
           fetch("/api/company"),
           fetch("/api/product"),
+          fetch("/api/user-info"), // I'll need to create this or check existing
         ]);
 
         if (companiesRes.ok) {
           setCompanies(await companiesRes.json());
-        } else {
-          console.warn("Company API returned", companiesRes.status, ", using empty array");
-          setCompanies([]);
         }
         if (productsRes.ok) {
-          setProducts(await productsRes.json());
-        } else {
-          console.warn("Product API returned", productsRes.status, ", using empty array");
-          setProducts([]);
+          const productsData = await productsRes.json();
+          setProducts(productsData);
+        }
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setIsAmit(userData.email === "amitraval1681@gmail.com");
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -177,6 +181,12 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const selectProduct = (product: Product) => {
     form.setValue("product", product.productName);
     setProductInputValue(`${product.productName} (${product.productCode})`);
+    
+    // Auto-fill brokerage rate for Amit if available
+    if (isAmit && product.brokerageRate) {
+      form.setValue("brokerageRate", Number(product.brokerageRate));
+    }
+    
     setShowProductSuggestions(false);
   };
 
@@ -278,261 +288,451 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <FormField
-                  control={form.control}
-                  name="sellerCompanyName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Seller Company</FormLabel>
-                      <FormControl>
-                        <div className="relative">
+            {isAmit ? (
+              /* AMIT'S CUSTOM LAYOUT */
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="sellerCompanyName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Seller Company</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                placeholder="Seller"
+                                value={field.value}
+                                onChange={(e) =>
+                                  handleSellerCompanyChange(e.target.value)
+                                }
+                                disabled={isLoading}
+                                autoComplete="off"
+                              />
+                              {showSellerSuggestions &&
+                                sellerSuggestions.length > 0 && (
+                                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                    {sellerSuggestions.map((company) => (
+                                      <div
+                                        key={`${company.companyName}-${company.companyCity}`}
+                                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                        onClick={() => selectSellerCompany(company)}
+                                      >
+                                        {company.companyName} ({company.companyCity})
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="sellerCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
                           <Input
-                            placeholder="Seller"
-                            value={field.value}
-                            onChange={(e) =>
-                              handleSellerCompanyChange(e.target.value)
-                            }
-                            disabled={isLoading}
-                            autoComplete="off"
+                            placeholder="City"
+                            {...field}
+                            disabled={true}
+                            readOnly
                           />
-                          {showSellerSuggestions &&
-                            sellerSuggestions.length > 0 && (
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buyerCompanyName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Buyer Company</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                placeholder="Buyer"
+                                value={field.value}
+                                onChange={(e) =>
+                                  handleBuyerCompanyChange(e.target.value)
+                                }
+                                disabled={isLoading}
+                                autoComplete="off"
+                              />
+                              {showBuyerSuggestions && buyerSuggestions.length > 0 && (
+                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                  {buyerSuggestions.map((company) => (
+                                    <div
+                                      key={`${company.companyName}-${company.companyCity}`}
+                                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                      onClick={() => selectBuyerCompany(company)}
+                                    >
+                                      {company.companyName} ({company.companyCity})
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="buyerCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="City"
+                            {...field}
+                            disabled={true}
+                            readOnly
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date</FormLabel>
+                        <FormControl>
+                          <DatePicker 
+                            value={field.value ? new Date(field.value) : undefined}
+                            onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                            placeholder="Select date"
+                            disabled={isLoading}
+                            displayFormat="dd/MM/yyyy"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="product"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Product</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              placeholder="Enter product"
+                              value={productInputValue}
+                              onChange={(e) => handleProductChange(e.target.value)}
+                              disabled={isLoading}
+                              autoComplete="off"
+                            />
+                            {showProductSuggestions && productSuggestions.length > 0 && (
                               <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
-                                {sellerSuggestions.map((company) => (
+                                {productSuggestions.map((product) => (
                                   <div
-                                    key={`${company.companyName}-${company.companyCity}`}
+                                    key={product.productCode}
                                     className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                    onClick={() => selectSellerCompany(company)}
+                                    onClick={() => selectProduct(product)}
                                   >
-                                    {company.companyName} ({company.companyCity})
+                                    {product.productName} ({product.productCode})
                                   </div>
                                 ))}
                               </div>
                             )}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="sellerCity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="City"
-                        {...field}
-                        disabled={true}
-                        readOnly
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <FormField
-                  control={form.control}
-                  name="buyerCompanyName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Buyer Company</FormLabel>
-                      <FormControl>
-                        <div className="relative">
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="brokerageRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Brokerage Rate</FormLabel>
+                        <FormControl>
                           <Input
-                            placeholder="Buyer"
-                            value={field.value}
-                            onChange={(e) =>
-                              handleBuyerCompanyChange(e.target.value)
-                            }
+                            type="number"
+                            step="0.01"
+                            placeholder="0"
+                            {...field}
                             disabled={isLoading}
-                            autoComplete="off"
                           />
-                          {showBuyerSuggestions && buyerSuggestions.length > 0 && (
-                            <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
-                              {buyerSuggestions.map((company) => (
-                                <div
-                                  key={`${company.companyName}-${company.companyCity}`}
-                                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                  onClick={() => selectBuyerCompany(company)}
-                                >
-                                  {company.companyName} ({company.companyCity})
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="qty"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Qty</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="1" min="0" placeholder="0" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="remarks"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Remarks</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Remarks" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </>
+            ) : (
+              /* ORIGINAL LAYOUT FOR OTHER USERS */
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="sellerCompanyName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Seller Company</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                placeholder="Seller"
+                                value={field.value}
+                                onChange={(e) => handleSellerCompanyChange(e.target.value)}
+                                disabled={isLoading}
+                                autoComplete="off"
+                              />
+                              {showSellerSuggestions && sellerSuggestions.length > 0 && (
+                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                  {sellerSuggestions.map((company) => (
+                                    <div
+                                      key={`${company.companyName}-${company.companyCity}`}
+                                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                      onClick={() => selectSellerCompany(company)}
+                                    >
+                                      {company.companyName} ({company.companyCity})
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="sellerCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} disabled={true} readOnly />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-              <FormField
-                control={form.control}
-                name="buyerCity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="City"
-                        {...field}
-                        disabled={true}
-                        readOnly
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date</FormLabel>
-                    <FormControl>
-                      <DatePicker 
-                        value={field.value ? new Date(field.value) : undefined}
-                        onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
-                        placeholder="Select date"
-                        disabled={isLoading}
-                        displayFormat="dd/MM/yyyy"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="product"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Product</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          placeholder="Enter product"
-                          value={productInputValue}
-                          onChange={(e) => handleProductChange(e.target.value)}
-                          onFocus={() => {
-                            if (form.getValues("product") && !productInputValue) {
-                              setProductInputValue("");
-                            }
-                          }}
-                          onBlur={() => {
-                            const selectedProduct = form.getValues("product");
-                            if (selectedProduct && !productInputValue) {
-                              const product = products.find(
-                                (p) => p.productName === selectedProduct
-                              );
-                              if (product) {
-                                setProductInputValue(
-                                  `${product.productName} (${product.productCode})`
-                                );
-                              }
-                            }
-                          }}
-                          disabled={isLoading}
-                          autoComplete="off"
-                        />
-                        {showProductSuggestions &&
-                          productSuggestions.length > 0 && (
-                            <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
-                              {productSuggestions.map((product) => (
-                                <div
-                                  key={product.productCode}
-                                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                  onClick={() => selectProduct(product)}
-                                >
-                                  {product.productName} ({product.productCode})
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buyerCompanyName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Buyer Company</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                placeholder="Buyer"
+                                value={field.value}
+                                onChange={(e) => handleBuyerCompanyChange(e.target.value)}
+                                disabled={isLoading}
+                                autoComplete="off"
+                              />
+                              {showBuyerSuggestions && buyerSuggestions.length > 0 && (
+                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                  {buyerSuggestions.map((company) => (
+                                    <div
+                                      key={`${company.companyName}-${company.companyCity}`}
+                                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                      onClick={() => selectBuyerCompany(company)}
+                                    >
+                                      {company.companyName} ({company.companyCity})
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                              )}
                             </div>
-                          )}
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="buyerCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} disabled={true} readOnly />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="qty"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Qty</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="1"
-                        min="0"
-                        placeholder="0"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Price</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="remarks"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Remarks</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Remarks"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date</FormLabel>
+                        <FormControl>
+                          <DatePicker 
+                            value={field.value ? new Date(field.value) : undefined}
+                            onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                            placeholder="Select date"
+                            disabled={isLoading}
+                            displayFormat="dd/MM/yyyy"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="product"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Product</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              placeholder="Enter product"
+                              value={productInputValue}
+                              onChange={(e) => handleProductChange(e.target.value)}
+                              disabled={isLoading}
+                              autoComplete="off"
+                            />
+                            {showProductSuggestions && productSuggestions.length > 0 && (
+                              <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                {productSuggestions.map((product) => (
+                                  <div
+                                    key={product.productCode}
+                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    onClick={() => selectProduct(product)}
+                                  >
+                                    {product.productName} ({product.productCode})
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="qty"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Qty</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="1" min="0" placeholder="0" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="remarks"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Remarks</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Remarks" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="flex gap-2 pt-2">
               <Button type="submit" disabled={isLoading} className="flex-1">
