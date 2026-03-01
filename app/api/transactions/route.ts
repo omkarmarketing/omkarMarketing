@@ -9,7 +9,7 @@ import {
   updateRow,
   deleteRow,
 } from "@/lib/sheets";
-import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
+import { verifyUserAccess, getSheetIdForUser, isAmit } from "@/lib/auth";
 import {
   getCurrentFinancialYearSheetName,
   getFinancialYearSheetName,
@@ -134,22 +134,26 @@ export async function POST(request: NextRequest) {
     await ensureSheet(sheetId, sheetName);
 
     const headers = await getSheetHeaders(sheetId, sheetName);
+    const amit = await isAmit();
+
+    const baseHeaders = [
+      "sellerCompanyName",
+      "sellerCompanyCity",
+      "date",
+      "buyerCompanyName",
+      "buyerCompanyCity",
+      "product",
+      "qty",
+      "price",
+      "remarks",
+    ];
 
     const finalHeaders =
       headers.length > 0
         ? headers
-        : [
-            "sellerCompanyName",
-            "sellerCompanyCity",
-            "date",
-            "buyerCompanyName",
-            "buyerCompanyCity",
-            "product",
-            "qty",
-            "price",
-            "remarks",
-            "brokerageRate",
-          ];
+        : amit
+        ? [...baseHeaders, "brokerageRate"]
+        : baseHeaders;
 
     if (headers.length === 0) {
       await sheets.spreadsheets.values.update({
@@ -158,8 +162,8 @@ export async function POST(request: NextRequest) {
         valueInputOption: "USER_ENTERED",
         requestBody: { values: [finalHeaders] },
       });
-    } else if (!headers.includes("brokerageRate")) {
-      // Append brokerageRate column to existing headers
+    } else if (amit && !headers.includes("brokerageRate")) {
+      // Append brokerageRate column to existing headers ONLY for Amit
       const nextColumnLetter = String.fromCharCode(65 + headers.length);
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
