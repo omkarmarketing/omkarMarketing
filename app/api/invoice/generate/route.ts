@@ -7,6 +7,7 @@ import { parseDateFromSheet } from "@/lib/date-utils";
 
 const requestSchema = z.object({
   companyName: z.string().min(1),
+  companyCity: z.string().min(1),
   startDate: z.string().min(1),
   endDate: z.string().min(1),
   brokerageRate: z.coerce.number().min(0),
@@ -17,8 +18,9 @@ const requestSchema = z.object({
 /**
  * Normalizes a company name by removing hyphens, spaces and converting to lowercase.
  */
-function normalizeCompanyName(name: string): string {
-  return name.toLowerCase().replace(/[\s-]/g, "");
+function normalizeString(str: string): string {
+  if (!str) return "";
+  return str.toLowerCase().trim().replace(/[\s-]/g, "");
 }
 
 export async function POST(req: NextRequest) {
@@ -27,7 +29,7 @@ export async function POST(req: NextRequest) {
   const fySheet = getCurrentFinancialYearSheetName();
 
   const body = await req.json();
-  const { companyName, startDate, endDate, brokerageRate, isPreview } =
+  const { companyName, companyCity, startDate, endDate, brokerageRate, isPreview } =
     requestSchema.parse(body);
 
   const rows = await getSheetValues(sheetId, fySheet);
@@ -46,8 +48,6 @@ export async function POST(req: NextRequest) {
   }));
 
   /* -------------------- OPTIMIZED FILTERING -------------------- */
-  // Convert start and end dates to Date objects for comparison
-  // Create date objects without time components for consistent comparison
   const startDateObj = new Date(startDate);
   const startCompare = new Date(
     startDateObj.getFullYear(),
@@ -56,7 +56,6 @@ export async function POST(req: NextRequest) {
   );
 
   const endDateObj = new Date(endDate);
-  // For end date comparison, include the entire day by adding 1 day and subtracting 1 ms
   const endDateTime = new Date(
     endDateObj.getFullYear(),
     endDateObj.getMonth(),
@@ -64,8 +63,9 @@ export async function POST(req: NextRequest) {
   );
   const endCompare = new Date(endDateTime.getTime() - 1);
 
-  // Pre-calculate normalized company name
-  const targetNormalized = normalizeCompanyName(companyName);
+  // Pre-calculate normalized company name and city
+  const targetNameNorm = normalizeString(companyName);
+  const targetCityNorm = normalizeString(companyCity);
 
   // Pre-parse all dates to avoid repeated parsing
   const parsedDates = cleanedRows.map(row => {
@@ -87,20 +87,15 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    // Normalize company names for matching
-    const sellerNormalized = normalizeCompanyName(cleanedRows[i].sellerCompanyName);
-    const buyerNormalized = normalizeCompanyName(cleanedRows[i].buyerCompanyName);
+    // Normalize company names and cities for matching
+    const sellerNameNorm = normalizeString(cleanedRows[i].sellerCompanyName);
+    const sellerCityNorm = normalizeString(cleanedRows[i].sellerCompanyCity);
+    const buyerNameNorm = normalizeString(cleanedRows[i].buyerCompanyName);
+    const buyerCityNorm = normalizeString(cleanedRows[i].buyerCompanyCity);
 
-    // Check if either the sanitized names match exactly or one is a substring of the other
-    const sellerMatches =
-      sellerNormalized === targetNormalized ||
-      (sellerNormalized.length > 5 && targetNormalized.includes(sellerNormalized)) ||
-      (targetNormalized.length > 5 && sellerNormalized.includes(targetNormalized));
-
-    const buyerMatches =
-      buyerNormalized === targetNormalized ||
-      (buyerNormalized.length > 5 && targetNormalized.includes(buyerNormalized)) ||
-      (targetNormalized.length > 5 && buyerNormalized.includes(targetNormalized));
+    // Exact matching on both Name and City for better precision
+    const sellerMatches = sellerNameNorm === targetNameNorm && sellerCityNorm === targetCityNorm;
+    const buyerMatches = buyerNameNorm === targetNameNorm && buyerCityNorm === targetCityNorm;
 
     if (sellerMatches || buyerMatches) {
       filteredIndices.push(i);
@@ -154,8 +149,16 @@ export async function POST(req: NextRequest) {
   const totalQty = filtered.reduce((s, r) => s + r.qty, 0);
   const brokerageAmount = totalQty * brokerageRate;
 
+  // Pre-calculate normalized target for other side brokerage check
+  const targetNameLower = companyName.toLowerCase();
+  const targetCityLower = companyCity.toLowerCase();
+
   const otherSideBrokerage = filtered.reduce((sum, r) => {
-    if (r.sellerCompanyName.toLowerCase() === companyName.toLowerCase()) {
+    // Only count remarks as brokerage if the company is the seller AND the city matches
+    if (
+      r.sellerCompanyName.toLowerCase() === targetNameLower &&
+      r.sellerCompanyCity.toLowerCase() === targetCityLower
+    ) {
       const val = parseFloat(r.remarks || "0");
       return sum + (isNaN(val) ? 0 : val);
     }
@@ -180,10 +183,7 @@ export async function POST(req: NextRequest) {
     summary: {
       invoiceNo,
       companyName,
-      companyCity:
-        filtered[0].buyerCompanyName.toLowerCase() === companyName.toLowerCase()
-          ? filtered[0].buyerCompanyCity
-          : filtered[0].sellerCompanyCity,
+      companyCity, // Use the city from the request directly
       invoiceDate: new Date().toLocaleDateString("en-GB"),
       dateRange: { start: startDate, end: endDate },
       brokerageRate,

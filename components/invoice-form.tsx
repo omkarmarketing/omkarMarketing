@@ -25,7 +25,7 @@ import { InvoiceSummaryPreview } from "@/components/invoice-summary-preview";
 /* -------------------- VALIDATION -------------------- */
 const schema = z.object({
   companyName: z.string().min(1, "Company name is required"),
-  companyCity: z.string().optional(),
+  companyCity: z.string().min(1, "Company city is required"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   brokerageRate: z.coerce.number().min(0).max(100),
@@ -75,26 +75,9 @@ export function InvoiceForm({
   const handleCompanyChange = (value: string) => {
     form.setValue("companyName", value);
 
-    // Auto-populate company city when company name changes
-    if (value) {
-      const company = companies.find(
-        (c) =>
-          (c.companyName || c["Company Name"] || "")
-            ?.toString()
-            .toLowerCase() === value.toLowerCase()
-      );
-      if (company) {
-        form.setValue(
-          "companyCity",
-          company.companyCity || company["City"] || ""
-        );
-      } else {
-        form.setValue("companyCity", "");
-      }
-    }
-
     if (!value) {
       setShowSuggestions(false);
+      form.setValue("companyCity", "");
       return;
     }
 

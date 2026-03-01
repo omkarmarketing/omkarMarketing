@@ -23,7 +23,9 @@ import { parseDateFromSheet } from "@/lib/date-utils";
 // ❌ city removed – backend derives it
 const transactionSchema = z.object({
   buyerCompanyName: z.string().min(1),
+  buyerCity: z.string().min(1),
   sellerCompanyName: z.string().min(1),
+  sellerCity: z.string().min(1),
   date: z.string().min(1),
   product: z.string().min(1),
   qty: z.coerce.number().positive(),
@@ -156,8 +158,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const buyerCity = await resolveCity(sheetId, data.buyerCompanyName);
-    const sellerCity = await resolveCity(sheetId, data.sellerCompanyName);
+    const buyerCity = data.buyerCity;
+    const sellerCity = data.sellerCity;
 
     // Fetch product data to map product codes to names
     const productSheetName = getProductSheetName();
@@ -253,8 +255,8 @@ export async function PUT(request: NextRequest) {
       throw new Error("Sheet headers not found");
     }
 
-    const buyerCity = await resolveCity(sheetId, data.buyerCompanyName);
-    const sellerCity = await resolveCity(sheetId, data.sellerCompanyName);
+    const buyerCity = data.buyerCity;
+    const sellerCity = data.sellerCity;
 
     // Fetch product data to map product codes to names
     const productSheetName = getProductSheetName();
