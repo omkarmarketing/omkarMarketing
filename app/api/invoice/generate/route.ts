@@ -8,10 +8,14 @@ import { parseDateFromSheet } from "@/lib/date-utils";
 const requestSchema = z.object({
   companyName: z.string().min(1),
   companyCity: z.string().min(1),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-  brokerageRate: z.coerce.number().min(0),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  brokerageRate: z.coerce.number().min(0).optional(),
   isPreview: z.boolean().optional(),
+  isManual: z.boolean().optional(),
+  description: z.string().optional(),
+  totalAmount: z.coerce.number().optional(),
+  invoiceDate: z.string().optional(),
 });
 
 /* -------------------- HELPERS -------------------- */
@@ -29,8 +33,52 @@ export async function POST(req: NextRequest) {
   const fySheet = getCurrentFinancialYearSheetName();
 
   const body = await req.json();
-  const { companyName, companyCity, startDate, endDate, brokerageRate, isPreview } =
-    requestSchema.parse(body);
+  const { 
+    companyName, 
+    companyCity, 
+    startDate, 
+    endDate, 
+    brokerageRate = 0, 
+    isPreview, 
+    isManual, 
+    description, 
+    totalAmount,
+    invoiceDate
+  } = requestSchema.parse(body);
+
+  // Get sequential invoice number for non-previews
+  let invoiceNo = "PREVIEW";
+  if (!isPreview) {
+    const sequentialNumber = await getNextInvoiceNumber(sheetId);
+    invoiceNo = `INV-${sequentialNumber}`;
+  }
+
+  /* -------------------- EXTERNAL / MANUAL MODE -------------------- */
+  if (isManual) {
+    // Format invoice date: if provided use it, else today
+    const finalInvoiceDate = invoiceDate 
+      ? new Date(invoiceDate).toLocaleDateString("en-GB")
+      : new Date().toLocaleDateString("en-GB");
+
+    return NextResponse.json({
+      success: true,
+      summary: {
+        invoiceNo,
+        companyName,
+        companyCity,
+        invoiceDate: finalInvoiceDate,
+        dateRange: { start: "", end: "" }, // Not used in manual mode
+        brokerageRate: 0,
+        totalQty: 0,
+        brokerageAmount: 0,
+        otherSideBrokerage: 0,
+        totalPayable: totalAmount || 0,
+        isManual: true,
+        description: description || "",
+      },
+      transactions: [],
+    });
+  }
 
   const rows = await getSheetValues(sheetId, fySheet);
 
@@ -48,6 +96,10 @@ export async function POST(req: NextRequest) {
   }));
 
   /* -------------------- OPTIMIZED FILTERING -------------------- */
+  if (!startDate || !endDate) {
+    return NextResponse.json({ success: false, error: "Missing dates for automated mode" }, { status: 400 });
+  }
+
   const startDateObj = new Date(startDate);
   const startCompare = new Date(
     startDateObj.getFullYear(),
@@ -91,11 +143,11 @@ export async function POST(req: NextRequest) {
     const sellerNameNorm = normalizeString(cleanedRows[i].sellerCompanyName);
     const sellerCityNorm = normalizeString(cleanedRows[i].sellerCompanyCity);
     const buyerNameNorm = normalizeString(cleanedRows[i].buyerCompanyName);
-    const buyerCityNorm = normalizeString(cleanedRows[i].buyerCompanyCity);
+    const buyerCompanyCityNorm = normalizeString(cleanedRows[i].buyerCompanyCity);
 
     // Exact matching on both Name and City for better precision
     const sellerMatches = sellerNameNorm === targetNameNorm && sellerCityNorm === targetCityNorm;
-    const buyerMatches = buyerNameNorm === targetNameNorm && buyerCityNorm === targetCityNorm;
+    const buyerMatches = buyerNameNorm === targetNameNorm && buyerCompanyCityNorm === targetCityNorm;
 
     if (sellerMatches || buyerMatches) {
       filteredIndices.push(i);
@@ -111,7 +163,7 @@ export async function POST(req: NextRequest) {
       success: false,
       error: `Too many transactions (${filtered.length}) for this date range. Please select a smaller date range.`,
       summary: {
-        invoiceNo: isPreview ? "PREVIEW" : "INV-000",
+        invoiceNo,
         companyName,
         companyCity: "",
         invoiceDate: new Date().toLocaleDateString("en-GB"),
@@ -131,7 +183,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       summary: {
-        invoiceNo: isPreview ? "PREVIEW" : "INV-000",
+        invoiceNo,
         companyName,
         companyCity: "",
         invoiceDate: new Date().toLocaleDateString("en-GB"),
@@ -169,13 +221,6 @@ export async function POST(req: NextRequest) {
     otherSideBrokerage > 0
       ? brokerageAmount + otherSideBrokerage
       : brokerageAmount;
-
-  // Get sequential invoice number only for actual invoices (not preview)
-  let invoiceNo = "PREVIEW";
-  if (!isPreview) {
-    const sequentialNumber = await getNextInvoiceNumber(sheetId);
-    invoiceNo = `INV-${sequentialNumber}`;
-  }
 
   /* -------------------- RESPONSE -------------------- */
   return NextResponse.json({

@@ -26,9 +26,47 @@ import { InvoiceSummaryPreview } from "@/components/invoice-summary-preview";
 const schema = z.object({
   companyName: z.string().min(1, "Company name is required"),
   companyCity: z.string().min(1, "Company city is required"),
-  startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
-  brokerageRate: z.coerce.number().min(0).max(100),
+  isManual: z.boolean().default(false),
+  // Automated fields
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  brokerageRate: z.coerce.number().min(0).max(100).optional(),
+  // Manual fields
+  description: z.string().optional(),
+  totalAmount: z.coerce.number().min(0).optional(),
+  invoiceDate: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.isManual) {
+    if (!data.description) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Description is required in manual mode",
+        path: ["description"],
+      });
+    }
+    if (data.totalAmount === undefined || data.totalAmount === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Total amount is required in manual mode",
+        path: ["totalAmount"],
+      });
+    }
+  } else {
+    if (!data.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Start date is required",
+        path: ["startDate"],
+      });
+    }
+    if (!data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End date is required",
+        path: ["endDate"],
+      });
+    }
+  }
 });
 
 export function InvoiceForm({
@@ -55,9 +93,13 @@ export function InvoiceForm({
     defaultValues: {
       companyName: "",
       companyCity: "",
+      isManual: false,
       startDate: "",
       endDate: new Date().toISOString().split("T")[0],
       brokerageRate: 2,
+      description: "",
+      totalAmount: 0,
+      invoiceDate: new Date().toISOString().split("T")[0],
     },
   });
 
@@ -214,9 +256,13 @@ export function InvoiceForm({
       form.reset({
         companyName: "",
         companyCity: "",
+        isManual: false,
         startDate: "",
         endDate: new Date().toISOString().split("T")[0],
         brokerageRate: 2,
+        description: "",
+        totalAmount: 0,
+        invoiceDate: new Date().toISOString().split("T")[0],
       });
       
       // Clear preview
@@ -309,73 +355,157 @@ export function InvoiceForm({
                 )}
               />
 
-              {/* DATES + RATE */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {dateRangeWarning && (
-                  <div className="col-span-full">
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700">
-                      ⚠️ {dateRangeWarning}
+              {/* MANUAL MODE TOGGLE */}
+              <FormField
+                name="isManual"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/50">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base font-semibold">Manual Mode</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Enter custom description and amount (no transactions)
+                      </p>
                     </div>
-                  </div>
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="h-6 w-6 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                      />
+                    </FormControl>
+                  </FormItem>
                 )}
-                <FormField
-                  name="startDate"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Start Date</FormLabel>
-                      <FormControl>
-                        <DatePicker 
-                          value={field.value ? new Date(field.value) : undefined}
-                          onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
-                          placeholder="Select start date"
-                          displayFormat="dd/MM/yyyy"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              />
 
-                <FormField
-                  name="endDate"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>End Date</FormLabel>
-                      <FormControl>
-                        <DatePicker 
-                          value={field.value ? new Date(field.value) : undefined}
-                          onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
-                          placeholder="Select end date"
-                          displayFormat="dd/MM/yyyy"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+              {/* DATES + RATE (Automated Mode) */}
+              {!form.watch("isManual") ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {dateRangeWarning && (
+                    <div className="col-span-full">
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700">
+                        ⚠️ {dateRangeWarning}
+                      </div>
+                    </div>
                   )}
-                />
-
-                {!isAmit && (
                   <FormField
-                    name="brokerageRate"
+                    name="startDate"
                     control={form.control}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Brokerage (%)</FormLabel>
+                        <FormLabel>Start Date</FormLabel>
+                        <FormControl>
+                          <DatePicker 
+                            value={field.value ? new Date(field.value) : undefined}
+                            onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                            placeholder="Select start date"
+                            displayFormat="dd/MM/yyyy"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    name="endDate"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Date</FormLabel>
+                        <FormControl>
+                          <DatePicker 
+                            value={field.value ? new Date(field.value) : undefined}
+                            onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                            placeholder="Select end date"
+                            displayFormat="dd/MM/yyyy"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {!isAmit && (
+                    <FormField
+                      name="brokerageRate"
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Brokerage (%)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              {...field}
+                              className="h-11"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+              ) : (
+                /* MANUAL FIELDS (Manual Mode) */
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <FormField
+                    name="invoiceDate"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Invoice Date</FormLabel>
+                        <FormControl>
+                          <DatePicker 
+                            value={field.value ? new Date(field.value) : undefined}
+                            onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                            placeholder="Select date"
+                            displayFormat="dd/MM/yyyy"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="description"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Custom Description</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="e.g., Brokerage for the period..."
+                            className="h-11"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="totalAmount"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Total Amount</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
                             step="0.01"
                             {...field}
+                            placeholder="0.00"
                             className="h-11"
                           />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
-                )}
-              </div>
+                </div>
+              )}
 
               {/* PREVIEW */}
               {showPreview && (
@@ -424,8 +554,8 @@ export function InvoiceForm({
                   disabled={
                     loading ||
                     !invoicePreview ||
-                    !invoicePreview.transactions ||
-                    invoicePreview.transactions.length === 0
+                    (!form.watch("isManual") && 
+                      (!invoicePreview.transactions || invoicePreview.transactions.length === 0))
                   }
                 >
                   {loading ? <Spinner /> : "Download Invoice"}

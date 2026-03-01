@@ -277,8 +277,9 @@ export const InvoiceDocument = ({ data }: any) => (
         <View style={styles.tr}>
           <Text style={{ ...styles.td, flex: 0.5 }}>1</Text>
           <Text style={{ ...styles.td, flex: 4 }}>
-            Brokerage for the period {data.summary.dateRange.start} to{" "}
-            {data.summary.dateRange.end}
+            {data.summary.isManual 
+              ? data.summary.description 
+              : `Brokerage for the period ${data.summary.dateRange.start} to ${data.summary.dateRange.end}`}
           </Text>
           <Text style={{ ...styles.tdRight, flex: 1 }}></Text>
           <Text style={{ ...styles.tdRight, flex: 1 }}></Text>
@@ -333,96 +334,98 @@ export const InvoiceDocument = ({ data }: any) => (
       </Text>
     </Page>
 
-    {/* ================= PAGE 2 ================= */}
-    <Page size="A4" style={styles.page}>
-      <Text style={styles.annexTitle}>Annexure – Transaction Details</Text>
+    {/* ================= PAGE 2 (Omit in Manual Mode) ================= */}
+    {!data.summary.isManual && (
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.annexTitle}>Annexure – Transaction Details</Text>
 
-      <View style={{ borderWidth: 1, borderColor: "#ccc" }}>
-        <View style={styles.annexHeader}>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 1 }}>Seller</Text>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 0.8 }}>Seller City</Text>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 0.8 }}>Date</Text>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 1 }}>Buyer</Text>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 0.8 }}>Buyer City</Text>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 1 }}>Product</Text>
-          <Text style={{ ...styles.annexCellRight, fontWeight: "bold", flex: 0.5 }}>Qty</Text>
-          <Text style={{ ...styles.annexCellRight, fontWeight: "bold", flex: 0.7 }}>Rate/Pc</Text>
-          {data.summary.isAmit && (
-            <Text style={{ ...styles.annexCellRight, fontWeight: "bold", flex: 0.6 }}>Bkrg</Text>
-          )}
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 1 }}>Remarks</Text>
-        </View>
-
-        {data.transactions.map((t: any, i: number) => (
-          <View key={i} style={styles.annexRow}>
-            <Text style={{ ...styles.annexCell, flex: 1 }}>{t.sellerCompanyName || ""}</Text>
-            <Text style={{ ...styles.annexCell, flex: 0.8 }}>{t.sellerCompanyCity || ""}</Text>
-            <Text style={{ ...styles.annexCell, flex: 0.8 }}>{formatDateForDisplay(t.date || "")}</Text>
-            <Text style={{ ...styles.annexCell, flex: 1 }}>{t.buyerCompanyName || ""}</Text>
-            <Text style={{ ...styles.annexCell, flex: 0.8 }}>{t.buyerCompanyCity || ""}</Text>
-            <Text style={{ ...styles.annexCell, flex: 1 }}>{t.product || ""}</Text>
-            <Text style={{ ...styles.annexCellRight, flex: 0.5 }}>{t.qty || 0}</Text>
-            <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>{formatAmount(t.price || 0)}</Text>
+        <View style={{ borderWidth: 1, borderColor: "#ccc" }}>
+          <View style={styles.annexHeader}>
+            <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 1 }}>Seller</Text>
+            <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 0.8 }}>Seller City</Text>
+            <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 0.8 }}>Date</Text>
+            <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 1 }}>Buyer</Text>
+            <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 0.8 }}>Buyer City</Text>
+            <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 1 }}>Product</Text>
+            <Text style={{ ...styles.annexCellRight, fontWeight: "bold", flex: 0.5 }}>Qty</Text>
+            <Text style={{ ...styles.annexCellRight, fontWeight: "bold", flex: 0.7 }}>Rate/Pc</Text>
             {data.summary.isAmit && (
-              <Text style={{ ...styles.annexCellRight, flex: 0.6 }}>{t.brokerageRate || 0}</Text>
+              <Text style={{ ...styles.annexCellRight, fontWeight: "bold", flex: 0.6 }}>Bkrg</Text>
             )}
-            <Text style={{ ...styles.annexCell, flex: 1 }}>{t.remarks || ""}</Text>
+            <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 1 }}>Remarks</Text>
           </View>
-        ))}
 
-        {/* SUMMARY */}
-        <View style={[styles.annexRow, { backgroundColor: "#fafafa" }]}>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 5.9 }}>
-            Total Quantity
-          </Text>
-          <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>{data.summary.totalQty}</Text>
-          <Text style={{ ...styles.annexCellRight, flex: data.summary.isAmit ? 1.6 : 1.0 }}></Text>
-        </View>
+          {data.transactions.map((t: any, i: number) => (
+            <View key={i} style={styles.annexRow}>
+              <Text style={{ ...styles.annexCell, flex: 1 }}>{t.sellerCompanyName || ""}</Text>
+              <Text style={{ ...styles.annexCell, flex: 0.8 }}>{t.sellerCompanyCity || ""}</Text>
+              <Text style={{ ...styles.annexCell, flex: 0.8 }}>{formatDateForDisplay(t.date || "")}</Text>
+              <Text style={{ ...styles.annexCell, flex: 1 }}>{t.buyerCompanyName || ""}</Text>
+              <Text style={{ ...styles.annexCell, flex: 0.8 }}>{t.buyerCompanyCity || ""}</Text>
+              <Text style={{ ...styles.annexCell, flex: 1 }}>{t.product || ""}</Text>
+              <Text style={{ ...styles.annexCellRight, flex: 0.5 }}>{t.qty || 0}</Text>
+              <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>{formatAmount(t.price || 0)}</Text>
+              {data.summary.isAmit && (
+                <Text style={{ ...styles.annexCellRight, flex: 0.6 }}>{t.brokerageRate || 0}</Text>
+              )}
+              <Text style={{ ...styles.annexCell, flex: 1 }}>{t.remarks || ""}</Text>
+            </View>
+          ))}
 
-        {!data.summary.isAmit && (
+          {/* SUMMARY */}
           <View style={[styles.annexRow, { backgroundColor: "#fafafa" }]}>
             <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 5.9 }}>
-              Brokerage Rate (per Qty)
+              Total Quantity
             </Text>
-            <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>
-              {formatAmount(data.summary.brokerageRate)}
-            </Text>
-            <Text style={{ ...styles.annexCellRight, flex: 1.0 }}></Text>
+            <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>{data.summary.totalQty}</Text>
+            <Text style={{ ...styles.annexCellRight, flex: data.summary.isAmit ? 1.6 : 1.0 }}></Text>
           </View>
-        )}
 
-        <View style={[styles.annexRow, { backgroundColor: "#fafafa" }]}>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 5.9 }}>
-            {data.summary.isAmit ? "Total Brokerage (Sum of per-product rates)" : "Calculation (Total Qty * Brokerage Rate)"}
-          </Text>
-          <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>
-            {formatAmount(data.summary.brokerageAmount)}
-          </Text>
-          <Text style={{ ...styles.annexCellRight, flex: data.summary.isAmit ? 1.6 : 1.0 }}></Text>
-        </View>
+          {!data.summary.isAmit && (
+            <View style={[styles.annexRow, { backgroundColor: "#fafafa" }]}>
+              <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 5.9 }}>
+                Brokerage Rate (per Qty)
+              </Text>
+              <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>
+                {formatAmount(data.summary.brokerageRate)}
+              </Text>
+              <Text style={{ ...styles.annexCellRight, flex: 1.0 }}></Text>
+            </View>
+          )}
 
-        {data.summary.otherSideBrokerage !== undefined && data.summary.otherSideBrokerage > 0 && (
           <View style={[styles.annexRow, { backgroundColor: "#fafafa" }]}>
             <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 5.9 }}>
-              Other Side Brokerage
+              {data.summary.isAmit ? "Total Brokerage (Sum of per-product rates)" : "Calculation (Total Qty * Brokerage Rate)"}
             </Text>
             <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>
-              {formatAmount(data.summary.otherSideBrokerage)}
+              {formatAmount(data.summary.brokerageAmount)}
             </Text>
             <Text style={{ ...styles.annexCellRight, flex: data.summary.isAmit ? 1.6 : 1.0 }}></Text>
           </View>
-        )}
 
-        <View style={[styles.annexRow, { backgroundColor: "#f0f0f0" }]}>
-          <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 5.9 }}>
-            Total Brokerage Amount (Total Amount)
-          </Text>
-          <Text style={{ ...styles.annexCellRight, fontWeight: "bold", flex: 0.7 }}>
-            {formatAmount(data.summary.totalPayable)}
-          </Text>
-          <Text style={{ ...styles.annexCellRight, flex: data.summary.isAmit ? 1.6 : 1.0 }}></Text>
+          {data.summary.otherSideBrokerage !== undefined && data.summary.otherSideBrokerage > 0 && (
+            <View style={[styles.annexRow, { backgroundColor: "#fafafa" }]}>
+              <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 5.9 }}>
+                Other Side Brokerage
+              </Text>
+              <Text style={{ ...styles.annexCellRight, flex: 0.7 }}>
+                {formatAmount(data.summary.otherSideBrokerage)}
+              </Text>
+              <Text style={{ ...styles.annexCellRight, flex: data.summary.isAmit ? 1.6 : 1.0 }}></Text>
+            </View>
+          )}
+
+          <View style={[styles.annexRow, { backgroundColor: "#f0f0f0" }]}>
+            <Text style={{ ...styles.annexCell, fontWeight: "bold", flex: 5.9 }}>
+              Total Brokerage Amount (Total Amount)
+            </Text>
+            <Text style={{ ...styles.annexCellRight, fontWeight: "bold", flex: 0.7 }}>
+              {formatAmount(data.summary.totalPayable)}
+            </Text>
+            <Text style={{ ...styles.annexCellRight, flex: data.summary.isAmit ? 1.6 : 1.0 }}></Text>
+          </View>
         </View>
-      </View>
-    </Page>
+      </Page>
+    )}
   </Document>
 );
