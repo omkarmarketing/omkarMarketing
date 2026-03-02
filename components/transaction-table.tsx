@@ -55,13 +55,15 @@ function formatDate(dateString: string): string {
 interface TransactionTableProps {
   refreshTrigger?: number;
   onRefresh?: () => void;
+  initialData?: Transaction[];
 }
 
 export function TransactionTable({
   refreshTrigger = 0,
   onRefresh,
+  initialData = [],
 }: TransactionTableProps) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>(initialData);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -118,6 +120,12 @@ export function TransactionTable({
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
 
   useEffect(() => {
+    // Skip initial fetch if data is pre-provided from server
+    if (initialData.length > 0 && refreshTrigger === 0 && transactions.length > 0) {
+      setIsLoading(false);
+      return;
+    }
+
     async function fetchTransactions() {
       setIsLoading(true);
       try {

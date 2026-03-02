@@ -71,12 +71,16 @@ const schema = z.object({
 
 export function InvoiceForm({
   onInvoiceGenerated,
+  initialCompanies = [],
+  initialIsAmit = false,
 }: {
   onInvoiceGenerated?: (data: any) => void;
+  initialCompanies?: any[];
+  initialIsAmit?: boolean;
 }) {
   const { toast } = useToast();
 
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>(initialCompanies);
   const [companySuggestions, setCompanySuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -85,7 +89,7 @@ export function InvoiceForm({
   const [invoiceProgress, setInvoiceProgress] = useState<{ status: string; progress: number } | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [isAmit, setIsAmit] = useState(false);
+  const [isAmit, setIsAmit] = useState(initialIsAmit);
   const [dateRangeWarning, setDateRangeWarning] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof schema>>({
@@ -105,16 +109,20 @@ export function InvoiceForm({
 
   /* -------------------- FETCH USER INFO -------------------- */
   useEffect(() => {
+    if (initialIsAmit !== undefined) return; // Skip if provided by prop
+    
     fetch("/api/user-info")
       .then((res) => res.json())
       .then((data) => {
         setIsAmit(data.email === "amitraval1681@gmail.com");
       })
       .catch(console.error);
-  }, []);
+  }, [initialIsAmit]);
 
   /* -------------------- FETCH COMPANIES -------------------- */
   useEffect(() => {
+    if (initialCompanies.length > 0) return; // Skip if provided by prop
+
     fetch("/api/company")
       .then((res) => res.json())
       .then(setCompanies)
@@ -122,7 +130,7 @@ export function InvoiceForm({
         console.error("Error fetching companies:", error);
         setCompanies([]);
       });
-  }, []);
+  }, [initialCompanies]);
 
   /* -------------------- COMPANY SEARCH -------------------- */
   const handleCompanyChange = (value: string) => {

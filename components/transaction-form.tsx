@@ -54,10 +54,19 @@ interface Product {
   brokerageRate?: string | number;
 }
 
-export function TransactionForm({ onSuccess }: TransactionFormProps) {
+export function TransactionForm({ 
+  onSuccess,
+  initialCompanies = [],
+  initialProducts = [],
+  initialIsAmit = false
+}: TransactionFormProps & {
+  initialCompanies?: Company[];
+  initialProducts?: Product[];
+  initialIsAmit?: boolean;
+}) {
   const [isLoading, setIsLoading] = useState(false);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [companies, setCompanies] = useState<Company[]>(initialCompanies);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [lastTransaction, setLastTransaction] =
     useState<Partial<TransactionFormValues> | null>(null);
   const [buyerSuggestions, setBuyerSuggestions] = useState<Company[]>([]);
@@ -67,7 +76,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const [showSellerSuggestions, setShowSellerSuggestions] = useState(false);
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
   const [productInputValue, setProductInputValue] = useState("");
-  const [isAmit, setIsAmit] = useState(false);
+  const [isAmit, setIsAmit] = useState(initialIsAmit);
   const { toast } = useToast();
 
   const form = useForm<TransactionFormValues>({
@@ -87,22 +96,25 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   });
 
   useEffect(() => {
+    // If all data provided, don't fetch
+    if (initialCompanies.length > 0 && initialProducts.length > 0) return;
+
     async function fetchData() {
       try {
         const [companiesRes, productsRes, userRes] = await Promise.all([
-          fetch("/api/company"),
-          fetch("/api/product"),
-          fetch("/api/user-info"), // I'll need to create this or check existing
+          initialCompanies.length > 0 ? Promise.resolve(null) : fetch("/api/company"),
+          initialProducts.length > 0 ? Promise.resolve(null) : fetch("/api/product"),
+          initialIsAmit !== undefined ? Promise.resolve(null) : fetch("/api/user-info"),
         ]);
 
-        if (companiesRes.ok) {
+        if (companiesRes && companiesRes.ok) {
           setCompanies(await companiesRes.json());
         }
-        if (productsRes.ok) {
+        if (productsRes && productsRes.ok) {
           const productsData = await productsRes.json();
           setProducts(productsData);
         }
-        if (userRes.ok) {
+        if (userRes && userRes.ok) {
           const userData = await userRes.json();
           setIsAmit(userData.email === "amitraval1681@gmail.com");
         }
@@ -112,7 +124,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
     }
 
     fetchData();
-  }, []);
+  }, [initialCompanies, initialProducts, initialIsAmit]);
 
   // Handle buyer company name input changes
   const handleBuyerCompanyChange = (value: string) => {

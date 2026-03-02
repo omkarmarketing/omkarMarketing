@@ -9,20 +9,35 @@ import {
 import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
 import { getCompanySheetName } from "@/lib/sheets-helper";
 import { z } from "zod";
+import { globalCache } from "@/lib/cache";
 
 const companySchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
   companyCity: z.string().min(1, "City is required"),
 });
 
+const CACHE_KEY_PREFIX = "companies_";
+
 export async function GET() {
   try {
-    await verifyUserAccess();
+    const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
     const sheetName = getCompanySheetName();
 
+    // Try cache first
+    const cacheKey = `${CACHE_KEY_PREFIX}${userId}`;
+    const cachedCompanies = globalCache.get<any[]>(cacheKey);
+    if (cachedCompanies) {
+      console.log(`Serving companies from cache for user ${userId}`);
+      return NextResponse.json(cachedCompanies);
+    }
+
     await ensureSheet(sheetId, sheetName);
     const companies = await getSheetValues(sheetId, sheetName);
+
+    // Store in cache for 10 minutes
+    globalCache.set(cacheKey, companies, 10 * 60 * 1000);
+
     return NextResponse.json(companies);
   } catch (error) {
     console.error("Error fetching companies:", error);
@@ -33,13 +48,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await verifyUserAccess();
+    const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
     const sheetName = getCompanySheetName();
 
     await ensureSheet(sheetId, sheetName);
     const body = await request.json();
     const { companyName, companyCity } = companySchema.parse(body);
+
+    // Clear cache
+    globalCache.clear(`${CACHE_KEY_PREFIX}${userId}`);
 
     // Get headers to ensure consistent ordering
     let headers = await getSheetHeaders(sheetId, sheetName);
@@ -77,7 +95,7 @@ export async function POST(request: NextRequest) {
 // PUT request to update a company by looking up the existing company
 export async function PUT(request: NextRequest) {
   try {
-    await verifyUserAccess();
+    const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
     const sheetName = getCompanySheetName();
     const body = await request.json();
@@ -88,6 +106,9 @@ export async function PUT(request: NextRequest) {
     if (!oldCompanyName) {
       return NextResponse.json({ error: 'Old company name is required to identify company to update' }, { status: 400 });
     }
+
+    // Clear cache
+    globalCache.clear(`${CACHE_KEY_PREFIX}${userId}`);
 
     // Ensure the sheet exists
     await ensureSheet(sheetId, sheetName);
@@ -138,7 +159,7 @@ export async function PUT(request: NextRequest) {
 // DELETE request to delete a company by company name
 export async function DELETE(request: NextRequest) {
   try {
-    await verifyUserAccess();
+    const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
     const sheetName = getCompanySheetName();
     const url = new URL(request.url);
@@ -147,6 +168,9 @@ export async function DELETE(request: NextRequest) {
     if (!companyName) {
       return NextResponse.json({ error: 'Company name is required to identify company to delete' }, { status: 400 });
     }
+
+    // Clear cache
+    globalCache.clear(`${CACHE_KEY_PREFIX}${userId}`);
 
     // Ensure the sheet exists
     await ensureSheet(sheetId, sheetName);

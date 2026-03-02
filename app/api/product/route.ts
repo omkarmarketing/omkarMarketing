@@ -9,6 +9,7 @@ import {
 import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
 import { getProductSheetName } from "@/lib/sheets-helper";
 import { z } from "zod";
+import { globalCache } from "@/lib/cache";
 
 const productSchema = z.object({
   productCode: z.string().min(1, "Product code is required"),
@@ -16,14 +17,28 @@ const productSchema = z.object({
   brokerageRate: z.coerce.number().optional().default(0),
 });
 
+const CACHE_KEY_PREFIX = "products_";
+
 export async function GET() {
   try {
-    await verifyUserAccess();
+    const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
     const sheetName = getProductSheetName();
 
+    // Try cache first
+    const cacheKey = `${CACHE_KEY_PREFIX}${userId}`;
+    const cachedProducts = globalCache.get<any[]>(cacheKey);
+    if (cachedProducts) {
+      console.log(`Serving products from cache for user ${userId}`);
+      return NextResponse.json(cachedProducts);
+    }
+
     await ensureSheet(sheetId, sheetName);
     const products = await getSheetValues(sheetId, sheetName);
+
+    // Store in cache for 10 minutes
+    globalCache.set(cacheKey, products, 10 * 60 * 1000);
+
     return NextResponse.json(products);
   } catch (error) {
     console.error("Error fetching products:", error);
@@ -34,13 +49,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await verifyUserAccess();
+    const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
     const sheetName = getProductSheetName();
 
     await ensureSheet(sheetId, sheetName);
     const body = await request.json();
     const { productCode, productName } = productSchema.parse(body);
+
+    // Clear cache
+    globalCache.clear(`${CACHE_KEY_PREFIX}${userId}`);
 
     let headers = await getSheetHeaders(sheetId, sheetName);
     if (headers.length === 0) {
@@ -78,7 +96,7 @@ export async function POST(request: NextRequest) {
 // PUT request to update a product by looking up the existing product
 export async function PUT(request: NextRequest) {
   try {
-    await verifyUserAccess();
+    const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
     const sheetName = getProductSheetName();
     const body = await request.json();
@@ -89,6 +107,9 @@ export async function PUT(request: NextRequest) {
     if (!oldProductCode) {
       return NextResponse.json({ error: 'Old product code is required to identify product to update' }, { status: 400 });
     }
+
+    // Clear cache
+    globalCache.clear(`${CACHE_KEY_PREFIX}${userId}`);
 
     // Ensure the sheet exists
     await ensureSheet(sheetId, sheetName);
@@ -140,7 +161,7 @@ export async function PUT(request: NextRequest) {
 // DELETE request to delete a product by product code
 export async function DELETE(request: NextRequest) {
   try {
-    await verifyUserAccess();
+    const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
     const sheetName = getProductSheetName();
     const url = new URL(request.url);
@@ -149,6 +170,9 @@ export async function DELETE(request: NextRequest) {
     if (!productCode) {
       return NextResponse.json({ error: 'Product code is required to identify product to delete' }, { status: 400 });
     }
+
+    // Clear cache
+    globalCache.clear(`${CACHE_KEY_PREFIX}${userId}`);
 
     // Ensure the sheet exists
     await ensureSheet(sheetId, sheetName);
