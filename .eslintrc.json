@@ -1,9 +1,5 @@
 {
     "extends": [
-        "next/core-web-vitals",
-        "plugin:security/recommended"
-    ],
-    "plugins": [
-        "security"
+        "next/core-web-vitals"
     ]
 }
