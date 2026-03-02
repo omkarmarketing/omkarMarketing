@@ -16,6 +16,8 @@ interface Product {
 
 interface ProductTableProps {
   refreshTrigger?: number
+  initialProducts?: Product[]
+  initialIsAmit?: boolean
 }
 
 interface Product {
@@ -33,13 +35,17 @@ interface EditProductModalProps {
   onSave: () => void
 }
 
-export function ProductTable({ refreshTrigger = 0 }: ProductTableProps) {
-  const [products, setProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export function ProductTable({ 
+  refreshTrigger = 0,
+  initialProducts = [],
+  initialIsAmit = false
+}: ProductTableProps) {
+  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [isLoading, setIsLoading] = useState(initialProducts.length === 0)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isAmit, setIsAmit] = useState(false)
+  const [isAmit, setIsAmit] = useState(initialIsAmit)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -66,16 +72,21 @@ export function ProductTable({ refreshTrigger = 0 }: ProductTableProps) {
       }
     }
 
-    fetchProducts()
+    // Only fetch if no initial data or if triggered by refresh
+    if (products.length === 0 || refreshTrigger > 0) {
+      fetchProducts()
+    }
 
-    // Fetch user info to check if it's Amit
-    fetch("/api/user-info")
-      .then((res) => res.json())
-      .then((data) => {
-        setIsAmit(data.email === "amitraval1681@gmail.com")
-      })
-      .catch(console.error)
-  }, [refreshTrigger, toast])
+    // Fetch user info to check if it's Amit (only on client and if not provided)
+    if (initialIsAmit === undefined && typeof window !== 'undefined') {
+      fetch("/api/user-info")
+        .then((res) => res.json())
+        .then((data) => {
+          setIsAmit(data.email === "amitraval1681@gmail.com")
+        })
+        .catch(console.error)
+    }
+  }, [refreshTrigger, toast, initialIsAmit])
 
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading products...</div>
   if (products.length === 0) return <div className="text-center py-8 text-muted-foreground">No products added yet</div>

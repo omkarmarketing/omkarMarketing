@@ -1,25 +1,32 @@
-"use client"
+import { getSheetIdForUser, verifyUserAccess } from "@/lib/auth";
+import { getSheetValues, ensureSheet } from "@/lib/sheets";
+import { getCompanySheetName } from "@/lib/sheets-helper";
+import { globalCache } from "@/lib/cache";
+import { CompanyPageClient } from "./company-page-client";
 
-import { useState } from "react"
-import { CompanyForm } from "@/components/company-form"
-import { CompanyTable } from "@/components/company-table"
+export default async function CompanyPage() {
+  const email = await verifyUserAccess();
+  const sheetId = await getSheetIdForUser();
+  const companySheetName = getCompanySheetName();
 
-export default function CompanyPage() {
-  const [refreshKey, setRefreshKey] = useState(0)
+  // Try cache first
+  const cacheKey = `companies_${email}`;
+  let companies = globalCache.get<any[]>(cacheKey);
+
+  if (!companies) {
+    try {
+      await ensureSheet(sheetId, companySheetName);
+      companies = await getSheetValues(sheetId, companySheetName);
+      globalCache.set(cacheKey, companies, 10 * 60 * 1000);
+    } catch (e) {
+      console.error("Error fetching companies on server:", e);
+      companies = [];
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Company Master</h1>
-        <p className="text-muted-foreground mt-1">Manage all registered companies</p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <CompanyForm onSuccess={() => setRefreshKey((k) => k + 1)} />
-        <div />
-      </div>
-
-      <CompanyTable refreshTrigger={refreshKey} />
-    </div>
-  )
+    <CompanyPageClient 
+      initialCompanies={companies || []} 
+    />
+  );
 }

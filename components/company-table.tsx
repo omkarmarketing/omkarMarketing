@@ -15,6 +15,7 @@ interface Company {
 
 interface CompanyTableProps {
   refreshTrigger?: number
+  initialCompanies?: Company[]
 }
 
 interface Company {
@@ -31,9 +32,12 @@ interface EditCompanyModalProps {
   onSave: () => void
 }
 
-export function CompanyTable({ refreshTrigger = 0 }: CompanyTableProps) {
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export function CompanyTable({ 
+  refreshTrigger = 0,
+  initialCompanies = []
+}: CompanyTableProps) {
+  const [companies, setCompanies] = useState<Company[]>(initialCompanies)
+  const [isLoading, setIsLoading] = useState(initialCompanies.length === 0)
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -68,7 +72,10 @@ export function CompanyTable({ refreshTrigger = 0 }: CompanyTableProps) {
       }
     }
 
-    fetchCompanies()
+    // Only fetch if no initial data or if triggered by refresh
+    if (companies.length === 0 || refreshTrigger > 0) {
+      fetchCompanies()
+    }
   }, [refreshTrigger, toast])
 
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading companies...</div>

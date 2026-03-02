@@ -1,25 +1,34 @@
-"use client"
+import { getSheetIdForUser, verifyUserAccess, isAmit } from "@/lib/auth";
+import { getSheetValues, ensureSheet } from "@/lib/sheets";
+import { getProductSheetName } from "@/lib/sheets-helper";
+import { globalCache } from "@/lib/cache";
+import { ProductPageClient } from "./product-page-client";
 
-import { useState } from "react"
-import { ProductForm } from "@/components/product-form"
-import { ProductTable } from "@/components/product-table"
+export default async function ProductPage() {
+  const email = await verifyUserAccess();
+  const sheetId = await getSheetIdForUser();
+  const productSheetName = getProductSheetName();
+  const amitStatus = await isAmit();
 
-export default function ProductPage() {
-  const [refreshKey, setRefreshKey] = useState(0)
+  // Try cache first
+  const cacheKey = `products_${email}`;
+  let products = globalCache.get<any[]>(cacheKey);
+
+  if (!products) {
+    try {
+      await ensureSheet(sheetId, productSheetName);
+      products = await getSheetValues(sheetId, productSheetName);
+      globalCache.set(cacheKey, products, 10 * 60 * 1000);
+    } catch (e) {
+      console.error("Error fetching products on server:", e);
+      products = [];
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Product Master</h1>
-        <p className="text-muted-foreground mt-1">Manage all registered products</p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <ProductForm onSuccess={() => setRefreshKey((k) => k + 1)} />
-        <div />
-      </div>
-
-      <ProductTable refreshTrigger={refreshKey} />
-    </div>
-  )
+    <ProductPageClient 
+      initialProducts={products || []} 
+      initialIsAmit={amitStatus} 
+    />
+  );
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -23,9 +23,9 @@ interface ProductFormProps {
   initialData?: Partial<ProductFormValues>
 }
 
-export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
+export function ProductForm({ onSuccess, initialData, initialIsAmit }: ProductFormProps & { initialIsAmit?: boolean }) {
   const [isLoading, setIsLoading] = useState(false)
-  const [isAmit, setIsAmit] = useState(false)
+  const [isAmit, setIsAmit] = useState(initialIsAmit || false)
   const { toast } = useToast()
 
   const form = useForm<ProductFormValues>({
@@ -37,15 +37,17 @@ export function ProductForm({ onSuccess, initialData }: ProductFormProps) {
     },
   })
 
-  // Fetch user info to check if it's Amit
-  useState(() => {
+  // Fetch user info to check if it's Amit (only on client and if not provided)
+  useEffect(() => {
+    if (initialIsAmit !== undefined || typeof window === 'undefined') return;
+    
     fetch("/api/user-info")
       .then((res) => res.json())
       .then((data) => {
         setIsAmit(data.email === "amitraval1681@gmail.com")
       })
       .catch(console.error)
-  })
+  }, [initialIsAmit])
 
   async function onSubmit(values: ProductFormValues) {
     setIsLoading(true)
