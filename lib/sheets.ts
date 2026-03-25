@@ -340,31 +340,56 @@ export async function ensureSheet(
 // Get next sequential invoice number
 export async function getNextInvoiceNumber(sheetId: string): Promise<number> {
   const invoiceTrackerSheet = "InvoiceTracker";
+  const HEADER_TEXT = "Last Invoice Number";
 
   try {
     // Ensure tracker sheet exists
     await ensureSheet(sheetId, invoiceTrackerSheet);
 
-    // Try to get existing counter
+    // Try to get A1 and A2 to handle potential headers
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `'${invoiceTrackerSheet}'!A2`,
+      range: `'${invoiceTrackerSheet}'!A1:A2`,
     });
 
-    const currentValue = response.data.values?.[0]?.[0];
-    const currentNumber = parseInt(currentValue as string) || 1548; // Start from 1549 if empty
+    const values = response.data.values || [];
+    let currentNumber = 1548; // Default fallback
+    let headerExists = false;
+
+    // Check A1 and A2
+    const a1Val = values[0]?.[0];
+    const a2Val = values[1]?.[0];
+
+    if (a1Val === HEADER_TEXT) {
+      headerExists = true;
+      const parsedA2 = parseInt(a2Val as string);
+      currentNumber = isNaN(parsedA2) ? 1548 : parsedA2;
+    } else {
+      // If A1 is a number, use it. If not (and not header), default to 1548
+      const parsedA1 = parseInt(a1Val as string);
+      if (!isNaN(parsedA1)) {
+        currentNumber = parsedA1;
+      } else if (a2Val) {
+        // Fallback to A2 if A1 was some other text but A2 has a value
+        const parsedA2 = parseInt(a2Val as string);
+        currentNumber = isNaN(parsedA2) ? 1548 : parsedA2;
+      }
+    }
+
     const nextNumber = currentNumber + 1;
 
-    // Update the counter
+    // Update the tracker with proper header and next number
+    // This self-corrects the sheet layout to: A1=Header, A2=Value
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `'${invoiceTrackerSheet}'!A2`,
+      range: `'${invoiceTrackerSheet}'!A1:A2`,
       valueInputOption: "RAW",
       requestBody: {
-        values: [[nextNumber]],
+        values: [[HEADER_TEXT], [nextNumber]],
       },
     });
 
+    console.log(`[InvoiceTracker] Found ${currentNumber}, Next: ${nextNumber}`);
     return nextNumber;
   } catch (error) {
     console.error("Error managing invoice number:", error);
