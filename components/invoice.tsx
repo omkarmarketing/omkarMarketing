@@ -6,13 +6,14 @@ import {
   StyleSheet,
   Image,
 } from "@react-pdf/renderer";
-import { formatDateForDisplay } from "@/lib/date-utils";
+import { formatDateForDisplay, formatDateToDots } from "@/lib/date-utils";
 
 /* -------------------- HELPERS -------------------- */
 const formatAmount = (v: number) => Number(v).toFixed(2);
 
 const convertNumberToWords = (num: number): string => {
-  if (!num) return "ZERO ONLY";
+  if (!num || num === 0) return "ZERO ONLY";
+
   const a = [
     "",
     "ONE",
@@ -47,15 +48,24 @@ const convertNumberToWords = (num: number): string => {
     "EIGHTY",
     "NINETY",
   ];
-  const w = (n: number): string =>
-    n < 20
-      ? a[n]
-      : n < 100
-      ? b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "")
-      : n < 1000
-      ? a[Math.floor(n / 100)] + " HUNDRED" + (n % 100 ? " " + w(n % 100) : "")
-      : w(Math.floor(n / 1000)) + " THOUSAND " + w(n % 1000);
-  return w(num).trim() + " ONLY";
+
+  const w = (n: number): string => {
+    if (n < 20) return a[Math.floor(n)];
+    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? " " + a[Math.floor(n % 10)] : "");
+    if (n < 1000) return a[Math.floor(n / 100)] + " HUNDRED" + (n % 100 ? " " + w(n % 100) : "");
+    if (n < 100000) return w(Math.floor(n / 1000)) + " THOUSAND" + (n % 1000 ? " " + w(n % 1000) : "");
+    if (n < 10000000) return w(Math.floor(n / 100000)) + " LAKH" + (n % 100000 ? " " + w(n % 100000) : "");
+    return w(Math.floor(n / 10000000)) + " CRORE" + (n % 10000000 ? " " + w(n % 10000000) : "");
+  };
+
+  const main = Math.floor(num);
+  const decimals = Math.round((num - main) * 100);
+
+  let res = w(main).trim();
+  if (decimals > 0) {
+    res += " AND " + w(decimals).trim() + " PAISA";
+  }
+  return res + " ONLY";
 };
 
 /* -------------------- STYLES -------------------- */
@@ -359,7 +369,7 @@ export const InvoiceDocument = ({ data }: any) => (
             <View key={i} style={styles.annexRow}>
               <Text style={{ ...styles.annexCell, flex: 1 }}>{t.sellerCompanyName || ""}</Text>
               <Text style={{ ...styles.annexCell, flex: 0.8 }}>{t.sellerCompanyCity || ""}</Text>
-              <Text style={{ ...styles.annexCell, flex: 0.8 }}>{formatDateForDisplay(t.date || "")}</Text>
+              <Text style={{ ...styles.annexCell, flex: 0.8 }}>{formatDateToDots(t.date || "")}</Text>
               <Text style={{ ...styles.annexCell, flex: 1 }}>{t.buyerCompanyName || ""}</Text>
               <Text style={{ ...styles.annexCell, flex: 0.8 }}>{t.buyerCompanyCity || ""}</Text>
               <Text style={{ ...styles.annexCell, flex: 1 }}>{t.product || ""}</Text>

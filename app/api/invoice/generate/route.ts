@@ -3,7 +3,7 @@ import { getSheetValues, getNextInvoiceNumber } from "@/lib/sheets";
 import { verifyUserAccess, getSheetIdForUser, isAmit } from "@/lib/auth";
 import { getCurrentFinancialYearSheetName } from "@/lib/sheets-helper";
 import { z } from "zod";
-import { parseDateFromSheet } from "@/lib/date-utils";
+import { parseDateFromSheet, formatDateToDots } from "@/lib/date-utils";
 
 const requestSchema = z.object({
   companyName: z.string().min(1),
@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
   if (isManual) {
     // Format invoice date: if provided use it, else today
     const finalInvoiceDate = invoiceDate 
-      ? new Date(invoiceDate).toLocaleDateString("en-GB")
-      : new Date().toLocaleDateString("en-GB");
+      ? formatDateToDots(invoiceDate)
+      : formatDateToDots(new Date());
 
     return NextResponse.json({
       success: true,
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
         invoiceNo,
         companyName,
         companyCity: "",
-        invoiceDate: new Date().toLocaleDateString("en-GB"),
+        invoiceDate: formatDateToDots(new Date()),
         dateRange: { start: startDate, end: endDate },
         brokerageRate,
         totalQty: 0,
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
         invoiceNo,
         companyName,
         companyCity: "",
-        invoiceDate: new Date().toLocaleDateString("en-GB"),
+        invoiceDate: formatDateToDots(new Date()),
         dateRange: { start: startDate, end: endDate },
         brokerageRate,
         totalQty: 0,
@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
       invoiceNo,
       companyName,
       companyCity, // Use the city from the request directly
-      invoiceDate: new Date().toLocaleDateString("en-GB"),
+      invoiceDate: formatDateToDots(new Date()),
       dateRange: { start: startDate, end: endDate },
       brokerageRate,
       totalQty,
