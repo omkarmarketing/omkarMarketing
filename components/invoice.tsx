@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Image,
 } from "@react-pdf/renderer";
-import { formatDateForDisplay, formatDateToDots } from "@/lib/date-utils";
+import { formatDateForDisplay, formatDateToDots, formatDateWithHyphens } from "@/lib/date-utils";
 
 /* -------------------- HELPERS -------------------- */
 const formatAmount = (v: number) => Number(v).toFixed(2);
@@ -289,7 +289,7 @@ export const InvoiceDocument = ({ data }: any) => (
           <Text style={{ ...styles.td, flex: 4 }}>
             {data.summary.isManual 
               ? data.summary.description 
-              : `Brokerage for the period ${data.summary.dateRange.start} to ${data.summary.dateRange.end}`}
+              : `Brokerage for the period ${formatDateWithHyphens(data.summary.dateRange.start)} to ${formatDateWithHyphens(data.summary.dateRange.end)}`}
           </Text>
           <Text style={{ ...styles.tdRight, flex: 1 }}></Text>
           <Text style={{ ...styles.tdRight, flex: 1 }}></Text>

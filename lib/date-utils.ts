@@ -105,3 +105,19 @@ export function formatDateToDots(date: any): string {
 
   return `${day}.${month}.${year}`;
 }
+
+/**
+ * Format a date to dd-mm-yyyy format
+ * @param date Date object or string to format
+ * @returns Date string in dd-mm-yyyy format
+ */
+export function formatDateWithHyphens(date: any): string {
+  const dateObj = parseDateFromSheet(date);
+  if (isNaN(dateObj.getTime())) return String(date);
+
+  const day = String(dateObj.getDate()).padStart(2, "0");
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const year = dateObj.getFullYear();
+
+  return `${day}-${month}-${year}`;
+}
