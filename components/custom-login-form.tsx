@@ -51,6 +51,10 @@ export function CustomLoginForm() {
     );
   }
 
+  return <ConfiguredCustomLoginForm />;
+}
+
+function ConfiguredCustomLoginForm() {
   const router = useRouter();
   const { signIn, isLoaded } = useSignIn();
   const { toast } = useToast();

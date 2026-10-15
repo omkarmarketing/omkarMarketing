@@ -9,6 +9,10 @@ export default function HomePage() {
     return null;
   }
 
+  return <AuthenticatedHomePage />;
+}
+
+function AuthenticatedHomePage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
 
