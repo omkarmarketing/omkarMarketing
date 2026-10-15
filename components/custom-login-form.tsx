@@ -36,6 +36,21 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function CustomLoginForm() {
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    return (
+      <Card className="w-full max-w-md bg-card rounded-lg shadow-lg border border-border">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold text-foreground">
+            Authentication unavailable
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Add Clerk credentials to enable sign-in.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   const router = useRouter();
   const { signIn, isLoaded } = useSignIn();
   const { toast } = useToast();

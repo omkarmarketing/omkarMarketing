@@ -1,9 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
+import { isClerkConfigured } from "@/lib/auth";
 
 const isPublicRoute = createRouteMatcher(["/", "/login(.*)", "/sign-up(.*)"]);
 
-export default clerkMiddleware(async (auth, req) => {
+const withClerkProtection = clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
     await auth.protect();
   }
@@ -23,6 +24,20 @@ export default clerkMiddleware(async (auth, req) => {
 
   return response;
 });
+
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
+  if (!isClerkConfigured()) {
+    const response = NextResponse.next();
+    response.headers.set("X-DNS-Prefetch-Control", "on");
+    response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+    response.headers.set("X-Frame-Options", "SAMEORIGIN");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("Referrer-Policy", "origin-when-cross-origin");
+    return response;
+  }
+
+  return withClerkProtection(req, event);
+}
 
 export const config = {
   matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],

@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function HomePage() {
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    return null;
+  }
+
   const { user, isLoaded } = useUser();
   const router = useRouter();
 

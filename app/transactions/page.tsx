@@ -1,10 +1,21 @@
-import { getSheetIdForUser, verifyUserAccess, isAmit } from "@/lib/auth";
+import { getSheetIdForUser, verifyUserAccess, isAmit, isClerkConfigured } from "@/lib/auth";
 import { getSheetValues, ensureSheet, sheets } from "@/lib/sheets";
 import { getCompanySheetName, getProductSheetName } from "@/lib/sheets-helper";
 import { globalCache } from "@/lib/cache";
 import { TransactionsPageClient } from "@/app/transactions/transactions-page-client";
 
 export default async function TransactionsPage() {
+  if (!isClerkConfigured()) {
+    return (
+      <TransactionsPageClient
+        initialCompanies={[]}
+        initialProducts={[]}
+        initialIsAmit={false}
+        initialTransactions={[]}
+      />
+    );
+  }
+
   const email = await verifyUserAccess();
   const sheetId = await getSheetIdForUser();
   const companySheetName = getCompanySheetName();

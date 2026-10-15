@@ -1,11 +1,15 @@
 import { InvoiceForm } from "@/components/invoice-form";
-import { getSheetIdForUser, verifyUserAccess, isAmit } from "@/lib/auth";
+import { getSheetIdForUser, verifyUserAccess, isAmit, isClerkConfigured } from "@/lib/auth";
 import { getSheetValues, ensureSheet } from "@/lib/sheets";
 import { getCompanySheetName } from "@/lib/sheets-helper";
 import { globalCache } from "@/lib/cache";
 import { InvoicePageClient } from "@/app/invoice/invoice-page-client";
 
 export default async function InvoicePage() {
+  if (!isClerkConfigured()) {
+    return <InvoicePageClient initialCompanies={[]} userEmail="" isAmit={false} />;
+  }
+
   const email = await verifyUserAccess();
   const sheetId = await getSheetIdForUser();
   const companySheetName = getCompanySheetName();

@@ -1,10 +1,14 @@
-import { getSheetIdForUser, verifyUserAccess, isAmit } from "@/lib/auth";
+import { getSheetIdForUser, verifyUserAccess, isAmit, isClerkConfigured } from "@/lib/auth";
 import { getSheetValues, ensureSheet } from "@/lib/sheets";
 import { getProductSheetName } from "@/lib/sheets-helper";
 import { globalCache } from "@/lib/cache";
 import { ProductPageClient } from "./product-page-client";
 
 export default async function ProductPage() {
+  if (!isClerkConfigured()) {
+    return <ProductPageClient initialProducts={[]} initialIsAmit={false} />;
+  }
+
   const email = await verifyUserAccess();
   const sheetId = await getSheetIdForUser();
   const productSheetName = getProductSheetName();

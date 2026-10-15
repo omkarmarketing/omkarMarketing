@@ -1,10 +1,14 @@
-import { getSheetIdForUser, verifyUserAccess } from "@/lib/auth";
+import { getSheetIdForUser, verifyUserAccess, isClerkConfigured } from "@/lib/auth";
 import { getSheetValues, ensureSheet } from "@/lib/sheets";
 import { getCompanySheetName } from "@/lib/sheets-helper";
 import { globalCache } from "@/lib/cache";
 import { CompanyPageClient } from "./company-page-client";
 
 export default async function CompanyPage() {
+  if (!isClerkConfigured()) {
+    return <CompanyPageClient initialCompanies={[]} />;
+  }
+
   const email = await verifyUserAccess();
   const sheetId = await getSheetIdForUser();
   const companySheetName = getCompanySheetName();
