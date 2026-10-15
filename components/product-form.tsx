@@ -11,8 +11,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast"
 
 const productSchema = z.object({
-  productCode: z.string().min(1, "Product code is required"),
-  productName: z.string().min(1, "Product name is required"),
+  productCode: z.string().trim().min(1, "Product code is required"),
+  productName: z.string().trim().min(1, "Product name is required"),
   brokerageRate: z.coerce.number().optional().default(0),
 })
 
@@ -103,8 +103,12 @@ export function ProductForm({ onSuccess, initialData, initialIsAmit }: ProductFo
   return (
     <Card className="border-border">
       <CardHeader>
-        <CardTitle>Add Product</CardTitle>
-        <CardDescription>Add a new product to your inventory</CardDescription>
+        <CardTitle>{initialData?.productCode ? "Edit Product" : "Add Product"}</CardTitle>
+        <CardDescription>
+          {initialData?.productCode
+            ? "Update the product master record."
+            : "Add a new product to your master list."}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -157,7 +161,13 @@ export function ProductForm({ onSuccess, initialData, initialIsAmit }: ProductFo
               />
             )}
             <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? "Adding..." : "Add Product"}
+              {isLoading
+                ? initialData?.productCode
+                  ? "Saving..."
+                  : "Adding..."
+                : initialData?.productCode
+                  ? "Save Product"
+                  : "Add Product"}
             </Button>
           </form>
         </Form>

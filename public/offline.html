@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Offline - Omkar Marketing</title>
+    <style>
+      body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        place-items: center;
+        padding: 1.5rem;
+        box-sizing: border-box;
+        background: #f8fafc;
+        color: #172033;
+        font: 16px/1.5 system-ui, sans-serif;
+      }
+      main {
+        width: min(100%, 32rem);
+        padding: 2rem;
+        border: 1px solid #d8dee8;
+        border-radius: 0.75rem;
+        background: white;
+      }
+      button {
+        min-height: 44px;
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        border: 0;
+        border-radius: 0.4rem;
+        background: #173b70;
+        color: white;
+        font: inherit;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You are offline</h1>
+      <p>
+        Connect to the internet to use Omkar Marketing. Transactions, invoices,
+        and master data need Google Sheets connectivity and are not available offline.
+      </p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

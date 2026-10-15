@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Table,
   TableBody,
@@ -43,6 +43,7 @@ interface Transaction {
   price: number | string;
   remarks?: string;
   _rowIndex?: number;
+  _sheetName?: string;
 }
 
 // Helper function to format date as dd/mm/yyyy
@@ -50,6 +51,15 @@ import { formatDateForDisplay } from "@/lib/date-utils";
 
 function formatDate(dateString: string): string {
   return formatDateForDisplay(dateString);
+}
+
+function formatDateForInput(dateString: string): string {
+  const date = parseDateFromSheet(dateString);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 interface TransactionTableProps {
@@ -64,8 +74,12 @@ export function TransactionTable({
   initialData = [],
 }: TransactionTableProps) {
   const [transactions, setTransactions] = useState<Transaction[]>(initialData);
+  const hasServerProvidedRows = useRef(initialData.length > 0);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20); // Show 20 items per page
   const { toast } = useToast();
@@ -97,7 +111,14 @@ export function TransactionTable({
 
   const filteredTransactions = sortedTransactions.filter((transaction) => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const transactionDate = parseDateFromSheet(transaction.date);
+    const afterStart =
+      !startDate ||
+      transactionDate >= parseDateFromSheet(startDate);
+    const beforeEnd =
+      !endDate ||
+      transactionDate <= parseDateFromSheet(endDate);
+    return afterStart && beforeEnd && (
       (transaction.buyerCompanyName &&
         transaction.buyerCompanyName.toLowerCase().includes(searchLower)) ||
       (transaction.sellerCompanyName &&
@@ -121,19 +142,29 @@ export function TransactionTable({
 
   useEffect(() => {
     // Skip initial fetch if data is pre-provided from server
-    if (initialData.length > 0 && refreshTrigger === 0 && transactions.length > 0) {
+    if (hasServerProvidedRows.current && refreshTrigger === 0) {
       setIsLoading(false);
       return;
     }
 
     async function fetchTransactions() {
       setIsLoading(true);
+      setLoadError(null);
       try {
         const response = await fetch("/api/transactions");
-        if (!response.ok) throw new Error("Failed to fetch transactions");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.error || "Failed to fetch transactions");
+        }
         const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error("The server returned an invalid transaction list.");
+        }
         setTransactions(data);
       } catch (error) {
+        setLoadError(
+          error instanceof Error ? error.message : "Failed to load transactions",
+        );
         toast({
           title: "Error",
           description:
@@ -179,16 +210,29 @@ export function TransactionTable({
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   async function handleEditTransaction(
     transaction: Transaction,
     rowIndex: number
   ) {
-    setEditingTransaction(transaction);
+    setEditingTransaction({
+      ...transaction,
+      date: formatDateForInput(transaction.date),
+      _rowIndex: rowIndex,
+    });
     setEditingRowIndex(rowIndex);
   }
 
-  async function handleDeleteTransaction(rowIndex: number) {
+  async function handleDeleteTransaction(rowIndex: number, sheetName?: string) {
+    if (!sheetName) {
+      toast({
+        title: "Unable to delete transaction",
+        description: "The transaction's financial-year sheet could not be identified.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (window.confirm("Are you sure you want to delete this transaction?")) {
       try {
         const response = await fetch("/api/transactions", {
@@ -196,7 +240,7 @@ export function TransactionTable({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ rowIndex }),
+          body: JSON.stringify({ rowIndex, sheetName }),
         });
 
         if (!response.ok) {
@@ -239,8 +283,9 @@ export function TransactionTable({
   // Handle transaction update
   const handleUpdateTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTransaction || editingRowIndex === null) return;
+    if (!editingTransaction || editingRowIndex === null || isUpdating) return;
 
+    setIsUpdating(true);
     try {
       const response = await fetch("/api/transactions", {
         method: "PUT",
@@ -248,8 +293,17 @@ export function TransactionTable({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...editingTransaction,
           rowIndex: editingRowIndex,
+          sheetName: editingTransaction._sheetName,
+          date: editingTransaction.date,
+          sellerCompanyName: editingTransaction.sellerCompanyName,
+          sellerCity: editingTransaction.sellerCompanyCity || "",
+          buyerCompanyName: editingTransaction.buyerCompanyName,
+          buyerCity: editingTransaction.buyerCompanyCity || "",
+          product: editingTransaction.product,
+          qty: editingTransaction.qty,
+          price: editingTransaction.price,
+          remarks: editingTransaction.remarks || "",
         }),
       });
 
@@ -280,6 +334,8 @@ export function TransactionTable({
             : "Failed to update transaction",
         variant: "destructive",
       });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -300,8 +356,8 @@ export function TransactionTable({
       {/* Edit Transaction Modal */}
       {editingTransaction && editingRowIndex !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Edit Transaction</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-transaction-title" className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 id="edit-transaction-title" className="text-lg font-semibold mb-4">Edit Transaction</h3>
             <form onSubmit={handleUpdateTransaction}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -331,11 +387,13 @@ export function TransactionTable({
                   </label>
                   <Input
                     value={editingTransaction.sellerCompanyCity || ""}
-                    onChange={(e) =>
-                      handleEditChange("sellerCompanyCity", e.target.value)
-                    }
                     className="w-full"
+                    disabled
+                    aria-describedby="seller-city-source"
                   />
+                  <p id="seller-city-source" className="mt-1 text-xs text-muted-foreground">
+                    City is sourced from Company Master.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
@@ -355,11 +413,13 @@ export function TransactionTable({
                   </label>
                   <Input
                     value={editingTransaction.buyerCompanyCity || ""}
-                    onChange={(e) =>
-                      handleEditChange("buyerCompanyCity", e.target.value)
-                    }
                     className="w-full"
+                    disabled
+                    aria-describedby="buyer-city-source"
                   />
+                  <p id="buyer-city-source" className="mt-1 text-xs text-muted-foreground">
+                    City is sourced from Company Master.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
@@ -379,6 +439,8 @@ export function TransactionTable({
                   </label>
                   <Input
                     type="number"
+                    min="1"
+                    step="1"
                     value={editingTransaction.qty}
                     onChange={(e) =>
                       handleEditChange("qty", parseFloat(e.target.value) || 0)
@@ -392,6 +454,7 @@ export function TransactionTable({
                   </label>
                   <Input
                     type="number"
+                    min="0.01"
                     step="0.01"
                     value={editingTransaction.price}
                     onChange={(e) =>
@@ -425,15 +488,15 @@ export function TransactionTable({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" className="w-full sm:w-auto">
-                  Update
+                <Button type="submit" className="w-full sm:w-auto" disabled={isUpdating}>
+                  {isUpdating ? "Saving..." : "Update"}
                 </Button>
               </div>
             </form>
           </div>
         </div>
       )}
-      <Card className="border-0 shadow-xl rounded-xl bg-gradient-to-br from-card to-muted/50 overflow-hidden">
+      <Card className="border-0 shadow-sm rounded-xl overflow-hidden">
         <CardHeader className="p-6 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-t-xl border-b">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -444,11 +507,11 @@ export function TransactionTable({
                 </CardTitle>
               </div>
               <CardDescription className="text-muted-foreground">
-                All recorded transactions for the current financial year
+                All recorded transactions
               </CardDescription>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
@@ -460,6 +523,33 @@ export function TransactionTable({
                   }}
                   className="pl-10 w-full sm:w-64"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">From date</span>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(event) => {
+                      setStartDate(event.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="h-10"
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">To date</span>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(event) => {
+                      setEndDate(event.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="h-10"
+                  />
+                </label>
               </div>
 
               {transactions.length > 0 && (
@@ -475,14 +565,77 @@ export function TransactionTable({
               )}
             </div>
           </div>
+          <p className="mt-3 text-sm text-muted-foreground" aria-live="polite">
+            Showing {filteredTransactions.length} of {transactions.length} transactions
+          </p>
         </CardHeader>
         <CardContent>
-          {transactions.length === 0 ? (
+          {loadError ? (
+            <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
+              <p className="font-medium">Transactions could not be loaded.</p>
+              <p className="mt-1 text-muted-foreground">{loadError}</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3"
+                onClick={() => onRefresh ? onRefresh() : window.location.reload()}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : transactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No transactions recorded yet
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="space-y-3 md:hidden">
+              {currentTransactions.length === 0 ? (
+                <p className="py-8 text-center text-muted-foreground">
+                  No transactions match these filters.
+                </p>
+              ) : currentTransactions.map((tx, idx) => (
+                <article
+                  key={`${tx._sheetName}-${tx._rowIndex ?? idx}`}
+                  className="rounded-lg border p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold">{tx.sellerCompanyName} → {tx.buyerCompanyName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {tx.sellerCompanyCity || "—"} → {tx.buyerCompanyCity || "—"}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">{formatDate(tx.date)}</Badge>
+                  </div>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div><dt className="text-muted-foreground">Product</dt><dd>{tx.product}</dd></div>
+                    <div><dt className="text-muted-foreground">Quantity</dt><dd>{Number(tx.qty || 0)}</dd></div>
+                    <div><dt className="text-muted-foreground">Price</dt><dd>{Number(tx.price || 0).toFixed(2)}</dd></div>
+                    <div className="col-span-2"><dt className="text-muted-foreground">Remarks</dt><dd>{tx.remarks || "—"}</dd></div>
+                  </dl>
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditTransaction(tx, tx._rowIndex ?? idx + 2)}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" /> Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteTransaction(tx._rowIndex ?? idx + 2, tx._sheetName)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow className="hover:bg-transparent">
@@ -542,7 +695,7 @@ export function TransactionTable({
                       const price = Number(tx.price) || 0;
                       return (
                         <TableRow
-                          key={idx}
+                          key={`${tx._sheetName}-${tx._rowIndex ?? idx}`}
                           className="border-b border-border/50 hover:bg-accent/20 transition-colors duration-150"
                         >
                           <TableCell className="py-4">
@@ -582,7 +735,7 @@ export function TransactionTable({
                           </TableCell>
                           <TableCell className="py-4 text-center font-medium">
                             <div className="flex justify-center items-center gap-1">
-                              <span>{qty.toFixed(2)}</span>
+                              <span>{qty}</span>
                             </div>
                           </TableCell>
                           <TableCell className="py-4 text-center font-medium">
@@ -603,6 +756,7 @@ export function TransactionTable({
                               <Button
                                 variant="outline"
                                 size="sm"
+                                aria-label={`Edit transaction ${formatDate(tx.date)} ${tx.sellerCompanyName} to ${tx.buyerCompanyName}`}
                                 onClick={() =>
                                   handleEditTransaction(
                                     tx,
@@ -616,9 +770,11 @@ export function TransactionTable({
                               <Button
                                 variant="outline"
                                 size="sm"
+                                aria-label={`Delete transaction ${formatDate(tx.date)} ${tx.sellerCompanyName} to ${tx.buyerCompanyName}`}
                                 onClick={() =>
                                   handleDeleteTransaction(
-                                    tx._rowIndex || idx + 2
+                                    tx._rowIndex || idx + 2,
+                                    tx._sheetName,
                                   )
                                 } // Using the row index from the sheet data
                                 className="h-8 w-8 p-0 text-destructive hover:text-destructive"
@@ -634,7 +790,6 @@ export function TransactionTable({
                 </TableBody>
               </Table>
             </div>
-          )}
           
           {/* Pagination Controls */}
           {totalPages > 1 && (
@@ -719,6 +874,8 @@ export function TransactionTable({
                 </PaginationContent>
               </Pagination>
             </div>
+          )}
+            </>
           )}
         </CardContent>
       </Card>

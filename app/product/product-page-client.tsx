@@ -20,12 +20,11 @@ export function ProductPageClient({
         <p className="text-muted-foreground mt-1">Manage all registered products</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="max-w-2xl">
         <ProductForm 
           onSuccess={() => setRefreshKey((k) => k + 1)} 
           initialIsAmit={initialIsAmit}
         />
-        <div />
       </div>
 
       <ProductTable 

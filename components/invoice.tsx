@@ -6,10 +6,10 @@ import {
   StyleSheet,
   Image,
 } from "@react-pdf/renderer";
-import { formatDateForDisplay, formatDateToDots, formatDateWithHyphens } from "@/lib/date-utils";
+import { formatDateToDots, formatDateWithHyphens } from "@/lib/date-utils";
 
 /* -------------------- HELPERS -------------------- */
-const formatAmount = (v: number) => Number(v).toFixed(2);
+const formatAmount = (v: number) => Number(v || 0).toFixed(2);
 
 const convertNumberToWords = (num: number): string => {
   if (!num || num === 0) return "ZERO ONLY";
@@ -244,6 +244,8 @@ export const InvoiceDocument = ({ data }: any) => (
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.logoWrapper}>
+          {/* react-pdf Image is not an HTML image element and has no alt prop. */}
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image src="/omkar-logo.png" style={styles.logo} />
         </View>
         <View>
@@ -269,6 +271,16 @@ export const InvoiceDocument = ({ data }: any) => (
           <Text style={styles.infoValue}>{data.summary.invoiceNo}</Text>
           <Text style={styles.infoLabel}>Invoice Date</Text>
           <Text style={styles.infoValue}>{data.summary.invoiceDate}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Brokerage Rate</Text>
+          <Text style={styles.infoValue}>{Number(data.summary.brokerageRate || 0)}%</Text>
+          <Text style={styles.infoLabel}>{data.summary.isManual ? "Invoice Type" : "Period"}</Text>
+          <Text style={styles.infoValue}>
+            {data.summary.isManual
+              ? "Manual"
+              : `${formatDateWithHyphens(data.summary.dateRange.start)} to ${formatDateWithHyphens(data.summary.dateRange.end)}`}
+          </Text>
         </View>
       </View>
 

@@ -30,8 +30,23 @@ export function parseDateFromSheet(dateInput: any): Date {
     return parseDateFromSheet(Number(dateStr));
   }
 
-  // Check if already in ISO format (yyyy-mm-dd)
-  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+  // Parse date-only ISO values in local time to avoid UTC day shifts.
+  const isoDateMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDateMatch) {
+    const [, year, month, day] = isoDateMatch.map(Number);
+    const date = new Date(year, month - 1, day);
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return new Date(NaN);
+    }
+    return date;
+  }
+
+  // ISO timestamps represent instants and retain normal JavaScript parsing.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(dateStr)) {
     return new Date(dateStr);
   }
 
@@ -43,7 +58,11 @@ export function parseDateFromSheet(dateInput: any): Date {
     const month = Number(shortDateMatch[2]);
     const year = Number(shortDateMatch[3]);
     const fullYear = year < 50 ? 2000 + year : 1900 + year;
-    return new Date(fullYear, month - 1, day);
+    const date = new Date(fullYear, month - 1, day);
+    if (date.getFullYear() !== fullYear || date.getMonth() !== month - 1 || date.getDate() !== day) {
+      return new Date(NaN);
+    }
+    return date;
   }
 
   // Support dd-mm-yyyy, dd/mm/yyyy, dd.mm.yyyy
@@ -52,7 +71,11 @@ export function parseDateFromSheet(dateInput: any): Date {
     const day = Number(longDateMatch[1]);
     const month = Number(longDateMatch[2]);
     const year = Number(longDateMatch[3]);
-    return new Date(year, month - 1, day);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+      return new Date(NaN);
+    }
+    return date;
   }
 
   // Otherwise try to parse as a standard date string

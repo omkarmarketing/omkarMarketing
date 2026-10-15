@@ -11,8 +11,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast"
 
 const companySchema = z.object({
-  companyName: z.string().min(1, "Company name is required"),
-  companyCity: z.string().min(1, "City is required"),
+  companyName: z.string().trim().min(1, "Company name is required"),
+  companyCity: z.string().trim().min(1, "City is required"),
 })
 
 type CompanyFormValues = z.infer<typeof companySchema>
@@ -88,8 +88,12 @@ export function CompanyForm({ onSuccess, initialData }: CompanyFormProps) {
   return (
     <Card className="border-border">
       <CardHeader>
-        <CardTitle>Add Company</CardTitle>
-        <CardDescription>Add a new company to your master list</CardDescription>
+        <CardTitle>{initialData?.companyName ? "Edit Company" : "Add Company"}</CardTitle>
+        <CardDescription>
+          {initialData?.companyName
+            ? "Update the company master record."
+            : "Add a new company to your master list."}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -121,7 +125,13 @@ export function CompanyForm({ onSuccess, initialData }: CompanyFormProps) {
               )}
             />
             <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? "Adding..." : "Add Company"}
+              {isLoading
+                ? initialData?.companyName
+                  ? "Saving..."
+                  : "Adding..."
+                : initialData?.companyName
+                  ? "Save Company"
+                  : "Add Company"}
             </Button>
           </form>
         </Form>

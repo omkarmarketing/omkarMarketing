@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -21,11 +22,32 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Spinner } from "@/components/ui/spinner";
 import { InvoiceSummaryPreview } from "@/components/invoice-summary-preview";
+import { parseDateFromSheet } from "@/lib/date-utils";
+
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function fromDateInputValue(value?: string): Date | undefined {
+  return value ? parseDateFromSheet(value) : undefined;
+}
+
+type InvoiceCompany = {
+  companyName?: string;
+  companyCity?: string;
+  "Company Name"?: string;
+  City?: string;
+};
+
+const EMPTY_COMPANIES: InvoiceCompany[] = [];
 
 /* -------------------- VALIDATION -------------------- */
 const schema = z.object({
-  companyName: z.string().min(1, "Company name is required"),
-  companyCity: z.string().min(1, "Company city is required"),
+  companyName: z.string().trim().min(1, "Company name is required"),
+  companyCity: z.string().trim().min(1, "Company city is required"),
   isManual: z.boolean().default(false),
   // Automated fields
   startDate: z.string().optional(),
@@ -33,11 +55,15 @@ const schema = z.object({
   brokerageRate: z.coerce.number().min(0).max(100).optional(),
   // Manual fields
   description: z.string().optional(),
-  totalAmount: z.coerce.number().min(0).optional(),
+  totalAmount: z.coerce.number().min(0)
+    .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-8, {
+      message: "Use no more than two decimal places",
+    })
+    .optional(),
   invoiceDate: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (data.isManual) {
-    if (!data.description) {
+    if (!data.description?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Description is required in manual mode",
@@ -49,6 +75,13 @@ const schema = z.object({
         code: z.ZodIssueCode.custom,
         message: "Total amount is required in manual mode",
         path: ["totalAmount"],
+      });
+    }
+    if (!data.invoiceDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invoice date is required in manual mode",
+        path: ["invoiceDate"],
       });
     }
   } else {
@@ -71,17 +104,17 @@ const schema = z.object({
 
 export function InvoiceForm({
   onInvoiceGenerated,
-  initialCompanies = [],
+  initialCompanies = EMPTY_COMPANIES,
   initialIsAmit = false,
 }: {
   onInvoiceGenerated?: (data: any) => void;
-  initialCompanies?: any[];
+  initialCompanies?: InvoiceCompany[];
   initialIsAmit?: boolean;
 }) {
   const { toast } = useToast();
 
-  const [companies, setCompanies] = useState<any[]>(initialCompanies);
-  const [companySuggestions, setCompanySuggestions] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<InvoiceCompany[]>(initialCompanies);
+  const [companySuggestions, setCompanySuggestions] = useState<InvoiceCompany[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -89,6 +122,7 @@ export function InvoiceForm({
   const [invoiceProgress, setInvoiceProgress] = useState<{ status: string; progress: number } | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewRequestValues, setPreviewRequestValues] = useState<string | null>(null);
   const [isAmit, setIsAmit] = useState(initialIsAmit);
   const [dateRangeWarning, setDateRangeWarning] = useState<string | null>(null);
 
@@ -99,13 +133,17 @@ export function InvoiceForm({
       companyCity: "",
       isManual: false,
       startDate: "",
-      endDate: new Date().toISOString().split("T")[0],
+      endDate: toDateInputValue(new Date()),
       brokerageRate: 2,
       description: "",
       totalAmount: 0,
-      invoiceDate: new Date().toISOString().split("T")[0],
+      invoiceDate: toDateInputValue(new Date()),
     },
   });
+  const currentFormValues = form.watch();
+  const hasCurrentPreview =
+    Boolean(invoicePreview) &&
+    previewRequestValues === JSON.stringify(currentFormValues);
 
   /* -------------------- FETCH USER INFO -------------------- */
   useEffect(() => {
@@ -123,18 +161,34 @@ export function InvoiceForm({
   useEffect(() => {
     if (initialCompanies.length > 0) return; // Skip if provided by prop
 
-    fetch("/api/company")
-      .then((res) => res.json())
-      .then(setCompanies)
-      .catch((error) => {
-        console.error("Error fetching companies:", error);
-        setCompanies([]);
-      });
-  }, [initialCompanies]);
+    async function fetchCompanies() {
+      try {
+        const response = await fetch("/api/company");
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          throw new Error(error?.error || "Unable to load companies.");
+        }
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error("The server returned an invalid company list.");
+        }
+        setCompanies(data);
+      } catch (error) {
+        toast({
+          title: "Companies could not be loaded",
+          description: error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+
+    void fetchCompanies();
+  }, [initialCompanies, toast]);
 
   /* -------------------- COMPANY SEARCH -------------------- */
   const handleCompanyChange = (value: string) => {
     form.setValue("companyName", value);
+    form.setValue("companyCity", "");
 
     if (!value) {
       setShowSuggestions(false);
@@ -153,7 +207,7 @@ export function InvoiceForm({
     setShowSuggestions(true);
   };
 
-  const selectCompany = (company: any) => {
+  const selectCompany = (company: InvoiceCompany) => {
     form.setValue(
       "companyName",
       company.companyName || company["Company Name"] || ""
@@ -181,6 +235,7 @@ export function InvoiceForm({
     }
     
     setPreviewLoading(true);
+    setPreviewRequestValues(null);
     setInvoiceProgress({ status: "Loading preview data...", progress: 50 });
     try {
       const res = await fetch("/api/invoice/generate", {
@@ -192,22 +247,32 @@ export function InvoiceForm({
       setInvoiceProgress({ status: "Processing preview...", progress: 80 });
       
       if (!res.ok) {
-        setInvoicePreview({
-          summary: {
-            companyName: values.companyName,
-            dateRange: { start: values.startDate, end: values.endDate },
-            brokerageRate: values.brokerageRate,
-            totalQty: 0,
-            totalPayable: 0,
-          },
-          transactions: [],
+        const errorData = await res.json().catch(() => null);
+        setInvoicePreview(null);
+        setShowPreview(false);
+        toast({
+          title: "Preview unavailable",
+          description: errorData?.error || "Unable to prepare an invoice preview.",
+          variant: "destructive",
         });
         return;
       }
 
       const data = await res.json();
+      if (!data.success) {
+        setInvoicePreview(null);
+        setShowPreview(false);
+        toast({
+          title: "Preview unavailable",
+          description: data.error || "Unable to prepare an invoice preview.",
+          variant: "destructive",
+        });
+        return;
+      }
       setInvoicePreview(data);
       setShowPreview(true);
+      setPreviewRequestValues(JSON.stringify(form.getValues()));
+      toast({ title: "Invoice preview is ready" });
     } catch {
       toast({
         title: "Preview failed",
@@ -240,7 +305,10 @@ export function InvoiceForm({
       const res = await fetch("/api/invoice/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          expectedFingerprint: invoicePreview?.fingerprint,
+        }),
       });
 
       setInvoiceProgress({ status: "Processing data...", progress: 60 });
@@ -248,6 +316,9 @@ export function InvoiceForm({
       const data = await res.json();
 
       if (!data.success) {
+        setInvoicePreview(null);
+        setShowPreview(false);
+        setPreviewRequestValues(null);
         toast({
           title: data.error || "Invoice generation failed",
           variant: "destructive",
@@ -266,16 +337,17 @@ export function InvoiceForm({
         companyCity: "",
         isManual: false,
         startDate: "",
-        endDate: new Date().toISOString().split("T")[0],
+        endDate: toDateInputValue(new Date()),
         brokerageRate: 2,
         description: "",
         totalAmount: 0,
-        invoiceDate: new Date().toISOString().split("T")[0],
+        invoiceDate: toDateInputValue(new Date()),
       });
       
       // Clear preview
       setInvoicePreview(null);
       setShowPreview(false);
+      setPreviewRequestValues(null);
     } catch {
       toast({
         title: "Something went wrong",
@@ -339,12 +411,13 @@ export function InvoiceForm({
                     {showSuggestions && companySuggestions.length > 0 && (
                       <div className="absolute z-20 mt-1 w-full rounded-lg border bg-white shadow-lg max-h-48 overflow-y-auto">
                         {companySuggestions.map((c) => (
-                          <div
+                          <button
+                            type="button"
                             key={`${c.companyName || c["Company Name"]}-${
                               c.companyCity || c["City"]
                             }`}
                             onClick={() => selectCompany(c)}
-                            className="px-4 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                            className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
                           >
                             <span className="font-medium">
                               {c.companyName || c["Company Name"]}
@@ -352,7 +425,7 @@ export function InvoiceForm({
                             <span className="ml-2 text-xs text-gray-500">
                               ({c.companyCity || c["City"]})
                             </span>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -401,8 +474,8 @@ export function InvoiceForm({
                         <FormLabel>Start Date</FormLabel>
                         <FormControl>
                           <DatePicker 
-                            value={field.value ? new Date(field.value) : undefined}
-                            onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                            value={fromDateInputValue(field.value)}
+                            onChange={(date) => field.onChange(date ? toDateInputValue(date) : undefined)}
                             placeholder="Select start date"
                             displayFormat="dd/MM/yyyy"
                           />
@@ -420,8 +493,8 @@ export function InvoiceForm({
                         <FormLabel>End Date</FormLabel>
                         <FormControl>
                           <DatePicker 
-                            value={field.value ? new Date(field.value) : undefined}
-                            onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                            value={fromDateInputValue(field.value)}
+                            onChange={(date) => field.onChange(date ? toDateInputValue(date) : undefined)}
                             placeholder="Select end date"
                             displayFormat="dd/MM/yyyy"
                           />
@@ -437,7 +510,7 @@ export function InvoiceForm({
                       control={form.control}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Brokerage (%)</FormLabel>
+                          <FormLabel>Brokerage Rate (per Qty)</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
@@ -453,7 +526,7 @@ export function InvoiceForm({
                 </div>
               ) : (
                 /* MANUAL FIELDS (Manual Mode) */
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <FormField
                     name="invoiceDate"
                     control={form.control}
@@ -462,10 +535,30 @@ export function InvoiceForm({
                         <FormLabel>Invoice Date</FormLabel>
                         <FormControl>
                           <DatePicker 
-                            value={field.value ? new Date(field.value) : undefined}
-                            onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : undefined)}
+                            value={fromDateInputValue(field.value)}
+                            onChange={(date) => field.onChange(date ? toDateInputValue(date) : undefined)}
                             placeholder="Select date"
                             displayFormat="dd/MM/yyyy"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="brokerageRate"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Brokerage (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            {...field}
+                            className="h-11"
                           />
                         </FormControl>
                         <FormMessage />
@@ -477,12 +570,14 @@ export function InvoiceForm({
                     control={form.control}
                     render={({ field }) => (
                       <FormItem className="md:col-span-2">
-                        <FormLabel>Custom Description</FormLabel>
+                        <FormLabel htmlFor="manual-invoice-description">Custom Description</FormLabel>
                         <FormControl>
-                          <Input
+                          <Textarea
+                            id="manual-invoice-description"
                             {...field}
+                            rows={3}
                             placeholder="e.g., Brokerage for the period..."
-                            className="h-11"
+                            className="min-h-24"
                           />
                         </FormControl>
                         <FormMessage />
@@ -512,7 +607,7 @@ export function InvoiceForm({
               )}
 
               {/* PREVIEW */}
-              {showPreview && !form.watch("isManual") && (
+              {showPreview && hasCurrentPreview && (
                 <div className="rounded-xl border bg-gray-50 p-5">
                   {previewLoading ? (
                     <div className="flex justify-center py-10">
@@ -529,23 +624,21 @@ export function InvoiceForm({
 
               {/* ACTIONS */}
               <div className="flex gap-3">
-                {!form.watch("isManual") && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => fetchPreview(form.getValues())}
-                    disabled={previewLoading}
-                  >
-                    {previewLoading ? (
-                      <>
-                        <Spinner className="mr-2 h-4 w-4" /> Loading...
-                      </>
-                    ) : (
-                      "See Preview"
-                    )}
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={form.handleSubmit(fetchPreview)}
+                  disabled={previewLoading || loading}
+                >
+                  {previewLoading ? (
+                    <>
+                      <Spinner className="mr-2 h-4 w-4" /> Loading...
+                    </>
+                  ) : (
+                    "See Preview"
+                  )}
+                </Button>
 
                 {invoiceProgress && (
                   <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
@@ -565,9 +658,9 @@ export function InvoiceForm({
                   className="flex-1"
                   disabled={
                     loading ||
+                    !hasCurrentPreview ||
                     (!form.watch("isManual") &&
-                      (!invoicePreview ||
-                        !invoicePreview.transactions ||
+                      (!invoicePreview.transactions ||
                         invoicePreview.transactions.length === 0))
                   }
                 >

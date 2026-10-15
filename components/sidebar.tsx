@@ -24,13 +24,14 @@ export function Sidebar() {
           <p className="text-xs text-muted-foreground mt-1">Business Dashboard</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav aria-label="Primary navigation" className="flex-1 p-4 space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
             return (
               <Link
                 key={item.href}
+                aria-current={isActive ? "page" : undefined}
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
                   isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
@@ -62,13 +63,14 @@ export function Sidebar() {
         <p className="text-xs text-muted-foreground mt-1">Business Dashboard</p>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav aria-label="Primary navigation" className="flex-1 p-4 space-y-2">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
           return (
             <Link
               key={item.href}
+              aria-current={isActive ? "page" : undefined}
               href={item.href}
               className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
                 isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"

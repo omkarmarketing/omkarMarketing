@@ -26,8 +26,8 @@ test.describe('Invoice Generation Flow', () => {
     // Fill company name
     await page.fill('input[placeholder="Search company..."]', 'Test Company');
     
-    // Attempt to download without description
-    await page.click('button:has-text("Download Invoice")');
+    // Preview submission validates manual fields before a download can be enabled.
+    await page.click('button:has-text("See Preview")');
 
     // Should see validation error (depending on implementation, usually toast or inline)
     // For now, check if we stay on same page and button is still there

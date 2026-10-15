@@ -12,8 +12,8 @@ import { z } from "zod";
 import { globalCache } from "@/lib/cache";
 
 const productSchema = z.object({
-  productCode: z.string().min(1, "Product code is required"),
-  productName: z.string().min(1, "Product name is required"),
+  productCode: z.string().trim().min(1, "Product code is required"),
+  productName: z.string().trim().min(1, "Product name is required"),
   brokerageRate: z.coerce.number().optional().default(0),
 });
 
@@ -42,8 +42,10 @@ export async function GET() {
     return NextResponse.json(products);
   } catch (error) {
     console.error("Error fetching products:", error);
-    // Return empty array if sheet not found or other errors
-    return NextResponse.json([]);
+    return NextResponse.json(
+      { error: "Unable to load products. Please try again." },
+      { status: 500 },
+    );
   }
 }
 
@@ -55,7 +57,24 @@ export async function POST(request: NextRequest) {
 
     await ensureSheet(sheetId, sheetName);
     const body = await request.json();
-    const { productCode, productName } = productSchema.parse(body);
+    const parsedBody = productSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: parsedBody.error.issues[0]?.message || "Enter valid product details." },
+        { status: 400 },
+      );
+    }
+    const { productCode, productName, brokerageRate } = parsedBody.data;
+    const products = await getSheetValues(sheetId, sheetName);
+    const normalizedCode = productCode.trim().toLowerCase();
+    if (
+      products.some(
+        (product) =>
+          String(product.productCode || "").trim().toLowerCase() === normalizedCode,
+      )
+    ) {
+      return NextResponse.json({ error: "A product with this code already exists." }, { status: 409 });
+    }
 
     // Clear cache
     globalCache.clear(`${CACHE_KEY_PREFIX}${userId}`);
@@ -76,7 +95,7 @@ export async function POST(request: NextRequest) {
     const row = headers.map((header) => {
       if (header === "productCode") return productCode;
       if (header === "productName") return productName;
-      if (header === "brokerageRate") return body.brokerageRate || 0;
+      if (header === "brokerageRate") return brokerageRate || 0;
       return "";
     });
 
@@ -101,8 +120,15 @@ export async function PUT(request: NextRequest) {
     const sheetName = getProductSheetName();
     const body = await request.json();
     
-    const { oldProductCode, data } = body; // Use oldProductCode to identify which product to update
-    const { productCode, productName } = productSchema.parse(data);
+    const { oldProductCode, data } = body;
+    const parsedData = productSchema.safeParse(data);
+    if (!parsedData.success) {
+      return NextResponse.json(
+        { error: parsedData.error.issues[0]?.message || "Enter valid product details." },
+        { status: 400 },
+      );
+    }
+    const { productCode, productName, brokerageRate } = parsedData.data;
 
     if (!oldProductCode) {
       return NextResponse.json({ error: 'Old product code is required to identify product to update' }, { status: 400 });
@@ -123,6 +149,43 @@ export async function PUT(request: NextRequest) {
     if (productIndex === -1) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
+    if (
+      productCode.trim().toLowerCase() !== String(oldProductCode).trim().toLowerCase()
+    ) {
+      const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+      const financialYearSheets = (spreadsheet.data.sheets || [])
+        .map((sheet) => sheet.properties?.title || "")
+        .filter((title) => /^FY\d{4}-\d{2}$/.test(title));
+      const rowsByYear = await Promise.all(
+        financialYearSheets.map((financialYear) =>
+          getSheetValues(sheetId, financialYear),
+        ),
+      );
+      const codeInUse = rowsByYear.flat().some(
+        (transaction) =>
+          String(transaction.product || "").trim().toLowerCase() ===
+          String(oldProductCode).trim().toLowerCase(),
+      );
+      if (codeInUse) {
+        return NextResponse.json(
+          {
+            error:
+              "This product code is used by existing transactions and cannot be changed without rewriting historical records.",
+          },
+          { status: 409 },
+        );
+      }
+    }
+    const normalizedCode = productCode.trim().toLowerCase();
+    if (
+      products.some(
+        (product, index) =>
+          index !== productIndex &&
+          String(product.productCode || "").trim().toLowerCase() === normalizedCode,
+      )
+    ) {
+      return NextResponse.json({ error: "A product with this code already exists." }, { status: 409 });
+    }
 
     // Get headers to map data correctly
     const headers = await getSheetHeaders(sheetId, sheetName);
@@ -131,7 +194,7 @@ export async function PUT(request: NextRequest) {
     const updatedRow = headers.map((header) => {
       if (header === "productCode") return productCode;
       if (header === "productName") return productName;
-      if (header === "brokerageRate") return data.brokerageRate || 0;
+      if (header === "brokerageRate") return brokerageRate || 0;
       return products[productIndex][header] || ""; // Preserve other fields if any
     });
 
@@ -185,6 +248,30 @@ export async function DELETE(request: NextRequest) {
     
     if (productIndex === -1) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const financialYearSheets = (spreadsheet.data.sheets || [])
+      .map((sheet) => sheet.properties?.title || "")
+      .filter((title) => /^FY\d{4}-\d{2}$/.test(title));
+    const transactionsByYear = await Promise.all(
+      financialYearSheets.map((financialYear) =>
+        getSheetValues(sheetId, financialYear),
+      ),
+    );
+    const productNames = new Set(
+      [productCode, products[productIndex].productName]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const isReferenced = transactionsByYear.flat().some((transaction) =>
+      productNames.has(String(transaction.product || "").trim().toLowerCase()),
+    );
+    if (isReferenced) {
+      return NextResponse.json(
+        { error: "This product is referenced by existing transactions and cannot be deleted." },
+        { status: 409 },
+      );
     }
 
     // Delete the specific row (productIndex + 2 because row 1 is headers)

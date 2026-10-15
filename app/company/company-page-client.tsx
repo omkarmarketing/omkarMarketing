@@ -18,9 +18,8 @@ export function CompanyPageClient({
         <p className="text-muted-foreground mt-1">Manage all registered companies</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="max-w-2xl">
         <CompanyForm onSuccess={() => setRefreshKey((k) => k + 1)} />
-        <div />
       </div>
 
       <CompanyTable 

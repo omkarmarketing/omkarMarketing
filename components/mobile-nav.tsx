@@ -15,15 +15,16 @@ export function MobileNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border md:hidden flex justify-around">
+    <nav aria-label="Primary navigation" className="fixed bottom-0 left-0 right-0 z-40 min-h-16 bg-card border-t border-border md:hidden flex justify-around">
       {navItems.map((item) => {
         const Icon = item.icon
         const isActive = pathname === item.href
         return (
           <Link
             key={item.href}
+            aria-current={isActive ? "page" : undefined}
             href={item.href}
-            className={`flex-1 flex flex-col items-center justify-center py-3 px-2 text-xs transition-colors ${
+            className={`flex-1 flex min-h-16 flex-col items-center justify-center py-2 px-1 text-xs transition-colors ${
               isActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
             }`}
           >

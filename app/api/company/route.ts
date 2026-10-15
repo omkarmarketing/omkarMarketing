@@ -12,11 +12,22 @@ import { z } from "zod";
 import { globalCache } from "@/lib/cache";
 
 const companySchema = z.object({
-  companyName: z.string().min(1, "Company name is required"),
-  companyCity: z.string().min(1, "City is required"),
+  companyName: z.string().trim().min(1, "Company name is required"),
+  companyCity: z.string().trim().min(1, "City is required"),
 });
 
 const CACHE_KEY_PREFIX = "companies_";
+
+async function getFinancialYearTransactions(sheetId: string) {
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const sheetNames = (spreadsheet.data.sheets || [])
+    .map((sheet) => sheet.properties?.title || "")
+    .filter((title) => /^FY\d{4}-\d{2}$/.test(title));
+  const rowsByYear = await Promise.all(
+    sheetNames.map((sheetName) => getSheetValues(sheetId, sheetName)),
+  );
+  return rowsByYear.flat();
+}
 
 export async function GET() {
   try {
@@ -41,8 +52,10 @@ export async function GET() {
     return NextResponse.json(companies);
   } catch (error) {
     console.error("Error fetching companies:", error);
-    // Return empty array if sheet not found or other errors
-    return NextResponse.json([]);
+    return NextResponse.json(
+      { error: "Unable to load companies. Please try again." },
+      { status: 500 },
+    );
   }
 }
 
@@ -52,9 +65,21 @@ export async function POST(request: NextRequest) {
     const sheetId = await getSheetIdForUser();
     const sheetName = getCompanySheetName();
 
-    await ensureSheet(sheetId, sheetName);
     const body = await request.json();
-    const { companyName, companyCity } = companySchema.parse(body);
+    const parsedBody = companySchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: parsedBody.error.issues[0]?.message || "Enter valid company details." },
+        { status: 400 },
+      );
+    }
+    const { companyName, companyCity } = parsedBody.data;
+    await ensureSheet(sheetId, sheetName);
+    const companies = await getSheetValues(sheetId, sheetName);
+    const normalizedName = companyName.trim().toLowerCase();
+    if (companies.some((company) => String(company.companyName || "").trim().toLowerCase() === normalizedName)) {
+      return NextResponse.json({ error: "A company with this name already exists." }, { status: 409 });
+    }
 
     // Clear cache
     globalCache.clear(`${CACHE_KEY_PREFIX}${userId}`);
@@ -100,8 +125,15 @@ export async function PUT(request: NextRequest) {
     const sheetName = getCompanySheetName();
     const body = await request.json();
     
-    const { oldCompanyName, data } = body; // Use oldCompanyName to identify which company to update
-    const { companyName, companyCity } = companySchema.parse(data);
+    const { oldCompanyName, data } = body;
+    const parsedData = companySchema.safeParse(data);
+    if (!parsedData.success) {
+      return NextResponse.json(
+        { error: parsedData.error.issues[0]?.message || "Enter valid company details." },
+        { status: 400 },
+      );
+    }
+    const { companyName, companyCity } = parsedData.data;
 
     if (!oldCompanyName) {
       return NextResponse.json({ error: 'Old company name is required to identify company to update' }, { status: 400 });
@@ -121,6 +153,36 @@ export async function PUT(request: NextRequest) {
     
     if (companyIndex === -1) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+    const currentCompany = companies[companyIndex];
+    if (
+      (companyName !== currentCompany.companyName ||
+        companyCity !== currentCompany.companyCity) &&
+      (await getFinancialYearTransactions(sheetId)).some((transaction) =>
+        [transaction.sellerCompanyName, transaction.buyerCompanyName].some(
+          (name) =>
+            String(name || "").trim().toLowerCase() ===
+            String(oldCompanyName).trim().toLowerCase(),
+        ),
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This company's name or city is used by existing transactions. Add a new Company Master record to preserve historical invoice matching.",
+        },
+        { status: 409 },
+      );
+    }
+    const normalizedName = companyName.trim().toLowerCase();
+    if (
+      companies.some(
+        (company, index) =>
+          index !== companyIndex &&
+          String(company.companyName || "").trim().toLowerCase() === normalizedName,
+      )
+    ) {
+      return NextResponse.json({ error: "A company with this name already exists." }, { status: 409 });
     }
 
     // Get headers to map data correctly
@@ -185,6 +247,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const normalizedCompanyName = companyName.trim().toLowerCase();
+    const isReferenced = (await getFinancialYearTransactions(sheetId)).some((transaction) =>
+      [transaction.sellerCompanyName, transaction.buyerCompanyName]
+        .some((name) => String(name || "").trim().toLowerCase() === normalizedCompanyName),
+    );
+    if (isReferenced) {
+      return NextResponse.json(
+        { error: "This company is referenced by existing transactions and cannot be deleted." },
+        { status: 409 },
+      );
+    }
+
     // Get all sheets to find the specific sheet ID
     const sheetInfo = await sheets.spreadsheets.get({
       spreadsheetId: sheetId,
@@ -230,5 +304,3 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
-
-

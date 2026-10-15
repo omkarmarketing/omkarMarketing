@@ -25,12 +25,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 const transactionSchema = z.object({
-  buyerCompanyName: z.string().min(1, "Buyer is required"),
-  buyerCity: z.string().min(1, "Buyer city is required"),
-  sellerCompanyName: z.string().min(1, "Seller is required"),
-  sellerCity: z.string().min(1, "Seller city is required"),
+  buyerCompanyName: z.string().trim().min(1, "Buyer is required"),
+  buyerCity: z.string().trim().min(1, "Buyer city is required"),
+  sellerCompanyName: z.string().trim().min(1, "Seller is required"),
+  sellerCity: z.string().trim().min(1, "Seller city is required"),
   date: z.string().min(1, "Date is required"),
-  product: z.string().min(1, "Product is required"),
+  product: z.string().trim().min(1, "Product is required"),
   qty: z.coerce.number().int().positive("Quantity must be a positive integer"),
   price: z.coerce.number().positive("Price must be positive"),
   remarks: z.string().optional(),
@@ -38,6 +38,10 @@ const transactionSchema = z.object({
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
+type PendingTransaction = {
+  id: string;
+  values: TransactionFormValues;
+};
 
 interface TransactionFormProps {
   onSuccess?: () => void;
@@ -54,10 +58,13 @@ interface Product {
   brokerageRate?: string | number;
 }
 
+const EMPTY_COMPANIES: Company[] = [];
+const EMPTY_PRODUCTS: Product[] = [];
+
 export function TransactionForm({ 
   onSuccess,
-  initialCompanies = [],
-  initialProducts = [],
+  initialCompanies = EMPTY_COMPANIES,
+  initialProducts = EMPTY_PRODUCTS,
   initialIsAmit = false
 }: TransactionFormProps & {
   initialCompanies?: Company[];
@@ -65,6 +72,7 @@ export function TransactionForm({
   initialIsAmit?: boolean;
 }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([]);
   const [companies, setCompanies] = useState<Company[]>(initialCompanies);
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [lastTransaction, setLastTransaction] =
@@ -107,24 +115,40 @@ export function TransactionForm({
           initialIsAmit !== undefined ? Promise.resolve(null) : fetch("/api/user-info"),
         ]);
 
-        if (companiesRes && companiesRes.ok) {
-          setCompanies(await companiesRes.json());
+        if (companiesRes) {
+          if (!companiesRes.ok) {
+            const error = await companiesRes.json().catch(() => null);
+            throw new Error(error?.error || "Unable to load Company Master.");
+          }
+          const data = await companiesRes.json();
+          if (!Array.isArray(data)) throw new Error("The server returned an invalid company list.");
+          setCompanies(data);
         }
-        if (productsRes && productsRes.ok) {
+        if (productsRes) {
+          if (!productsRes.ok) {
+            const error = await productsRes.json().catch(() => null);
+            throw new Error(error?.error || "Unable to load Product Master.");
+          }
           const productsData = await productsRes.json();
+          if (!Array.isArray(productsData)) throw new Error("The server returned an invalid product list.");
           setProducts(productsData);
         }
-        if (userRes && userRes.ok) {
+        if (userRes) {
+          if (!userRes.ok) throw new Error("Unable to load user settings.");
           const userData = await userRes.json();
           setIsAmit(userData.email === "amitraval1681@gmail.com");
         }
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        toast({
+          title: "Transaction form data could not be loaded",
+          description: error instanceof Error ? error.message : "Try refreshing the page.",
+          variant: "destructive",
+        });
       }
     }
 
     fetchData();
-  }, [initialCompanies, initialProducts, initialIsAmit]);
+  }, [initialCompanies, initialProducts, initialIsAmit, toast]);
 
   // Handle buyer company name input changes
   const handleBuyerCompanyChange = (value: string) => {
@@ -205,6 +229,102 @@ export function TransactionForm({
   // Auto-populate buyer city when buyer company changes (handled in selectBuyerCompany)
   // Auto-populate seller city when seller company changes (handled in selectSellerCompany)
 
+  function resetEntryFields() {
+    form.setValue("product", "");
+    form.setValue("qty", 1);
+    form.setValue("price", 0);
+    form.setValue("remarks", "");
+    setProductInputValue("");
+  }
+
+  function addPendingTransaction(values: TransactionFormValues) {
+    setPendingTransactions((current) => [
+      ...current,
+      { id: crypto.randomUUID(), values },
+    ]);
+    resetEntryFields();
+    toast({
+      title: "Added to pending transactions",
+      description: "Shared company and date fields are ready for the next entry.",
+    });
+  }
+
+  function editPendingTransaction(transaction: PendingTransaction) {
+    setPendingTransactions((current) =>
+      current.filter((item) => item.id !== transaction.id),
+    );
+    form.reset(transaction.values);
+    const selectedProduct = products.find(
+      (product) => product.productName === transaction.values.product,
+    );
+    setProductInputValue(
+      selectedProduct
+        ? `${selectedProduct.productName} (${selectedProduct.productCode})`
+        : transaction.values.product,
+    );
+  }
+
+  async function savePendingTransactions() {
+    if (pendingTransactions.length === 0 || isLoading) return;
+    setIsLoading(true);
+    let savedCount = 0;
+    let failedCount = 0;
+    let uncertainOutcome = false;
+    let firstFailureMessage: string | null = null;
+
+    try {
+      for (const transaction of pendingTransactions) {
+        let response: Response;
+        try {
+          response = await fetch("/api/transactions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(transaction.values),
+          });
+        } catch {
+          uncertainOutcome = true;
+          break;
+        }
+
+        if (!response.ok) {
+          failedCount += 1;
+          const errorData = await response.json().catch(() => null);
+          firstFailureMessage ??=
+            errorData?.error || `The server rejected an entry (${response.status}).`;
+          continue;
+        }
+
+        savedCount += 1;
+        setPendingTransactions((current) =>
+          current.filter((item) => item.id !== transaction.id),
+        );
+      }
+
+      if (savedCount > 0) onSuccess?.();
+      if (uncertainOutcome) {
+        toast({
+          title: `${savedCount} transaction${savedCount === 1 ? "" : "s"} confirmed`,
+          description:
+            "The connection ended before all results were confirmed. Check the transaction list before retrying the remaining entries.",
+          variant: "destructive",
+        });
+      } else if (failedCount > 0) {
+        toast({
+          title: `${savedCount} transaction${savedCount === 1 ? "" : "s"} saved`,
+          description: `${failedCount} entries remain pending. ${firstFailureMessage || "Review the entries and retry after correcting any errors."}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: `${savedCount} transactions saved successfully`,
+          description: "All pending entries were confirmed by the server.",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function onSubmit(values: TransactionFormValues) {
     setIsLoading(true);
     try {
@@ -233,11 +353,7 @@ export function TransactionForm({
         product: values.product,
       });
 
-      form.setValue("product", "");
-      form.setValue("qty", 1);
-      form.setValue("price", 0);
-      form.setValue("remarks", "");
-      setProductInputValue("");
+      resetEntryFields();
       onSuccess?.();
     } catch (error) {
       toast({
@@ -326,13 +442,14 @@ export function TransactionForm({
                                 sellerSuggestions.length > 0 && (
                                   <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                                     {sellerSuggestions.map((company) => (
-                                      <div
+                                      <button
+                                        type="button"
                                         key={`${company.companyName}-${company.companyCity}`}
-                                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                        className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
                                         onClick={() => selectSellerCompany(company)}
                                       >
                                         {company.companyName} ({company.companyCity})
-                                      </div>
+                                      </button>
                                     ))}
                                   </div>
                                 )}
@@ -385,13 +502,14 @@ export function TransactionForm({
                               {showBuyerSuggestions && buyerSuggestions.length > 0 && (
                                 <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                                   {buyerSuggestions.map((company) => (
-                                    <div
+                                    <button
+                                      type="button"
                                       key={`${company.companyName}-${company.companyCity}`}
-                                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
                                       onClick={() => selectBuyerCompany(company)}
                                     >
                                       {company.companyName} ({company.companyCity})
-                                    </div>
+                                    </button>
                                   ))}
                                 </div>
                               )}
@@ -460,13 +578,14 @@ export function TransactionForm({
                             {showProductSuggestions && productSuggestions.length > 0 && (
                               <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                                 {productSuggestions.map((product) => (
-                                  <div
+                                  <button
+                                    type="button"
                                     key={product.productCode}
-                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
                                     onClick={() => selectProduct(product)}
                                   >
                                     {product.productName} ({product.productCode})
-                                  </div>
+                                  </button>
                                 ))}
                               </div>
                             )}
@@ -562,13 +681,14 @@ export function TransactionForm({
                               {showSellerSuggestions && sellerSuggestions.length > 0 && (
                                 <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                                   {sellerSuggestions.map((company) => (
-                                    <div
+                                    <button
+                                      type="button"
                                       key={`${company.companyName}-${company.companyCity}`}
-                                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
                                       onClick={() => selectSellerCompany(company)}
                                     >
                                       {company.companyName} ({company.companyCity})
-                                    </div>
+                                    </button>
                                   ))}
                                 </div>
                               )}
@@ -614,13 +734,14 @@ export function TransactionForm({
                               {showBuyerSuggestions && buyerSuggestions.length > 0 && (
                                 <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                                   {buyerSuggestions.map((company) => (
-                                    <div
+                                    <button
+                                      type="button"
                                       key={`${company.companyName}-${company.companyCity}`}
-                                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
                                       onClick={() => selectBuyerCompany(company)}
                                     >
                                       {company.companyName} ({company.companyCity})
-                                    </div>
+                                    </button>
                                   ))}
                                 </div>
                               )}
@@ -684,13 +805,14 @@ export function TransactionForm({
                             {showProductSuggestions && productSuggestions.length > 0 && (
                               <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
                                 {productSuggestions.map((product) => (
-                                  <div
+                                  <button
+                                    type="button"
                                     key={product.productCode}
-                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
                                     onClick={() => selectProduct(product)}
                                   >
                                     {product.productName} ({product.productCode})
-                                  </div>
+                                  </button>
                                 ))}
                               </div>
                             )}
@@ -746,15 +868,70 @@ export function TransactionForm({
               </>
             )}
 
-            <div className="flex gap-2 pt-2">
+            {pendingTransactions.length > 0 && (
+              <section aria-label="Pending transactions" className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">Pending transactions ({pendingTransactions.length})</h3>
+                    <p className="text-sm text-muted-foreground">These entries have not been saved yet.</p>
+                  </div>
+                  <Button type="button" onClick={savePendingTransactions} disabled={isLoading}>
+                    {isLoading ? "Saving..." : "Record Pending Transactions"}
+                  </Button>
+                </div>
+                <ul className="divide-y rounded-md border bg-background">
+                  {pendingTransactions.map((transaction, index) => (
+                    <li key={transaction.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {index + 1}. {transaction.values.sellerCompanyName} → {transaction.values.buyerCompanyName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {transaction.values.product} · Qty {transaction.values.qty} · Price {transaction.values.price}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => editPendingTransaction(transaction)} disabled={isLoading}>
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPendingTransactions((current) => current.filter((item) => item.id !== transaction.id))}
+                          disabled={isLoading}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <div className="flex flex-col gap-2 pt-2 sm:flex-row">
               <Button type="submit" disabled={isLoading} className="flex-1">
                 {isLoading ? "Recording..." : "Record Transaction"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isLoading}
+                className="flex-1"
+                onClick={form.handleSubmit(addPendingTransaction)}
+              >
+                Add Another
               </Button>
               <Button
                 type="button"
                 disabled={isLoading}
                 variant="outline"
                 onClick={() => {
+                  if (pendingTransactions.length > 0 && !window.confirm("Clear the form and discard all unsaved pending transactions? Saved transactions will not be affected.")) {
+                    return;
+                  }
+                  setPendingTransactions([]);
                   form.reset({
                     buyerCompanyName: "",
                     buyerCity: "",
