@@ -19,11 +19,26 @@ interface DatePickerProps {
   className?: string;
   placeholder?: string;
   disabled?: boolean;
+  id?: string;
+  name?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
   /** Format for displaying the date in the input field */
   displayFormat?: string;
 }
 
-export function DatePicker({ value, onChange, className, placeholder = "Pick a date", disabled, displayFormat = "PPP" }: DatePickerProps) {
+export function DatePicker({
+  value,
+  onChange,
+  className,
+  placeholder = "Pick a date",
+  disabled,
+  id,
+  name,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  displayFormat = "PPP",
+}: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -31,6 +46,11 @@ export function DatePicker({ value, onChange, className, placeholder = "Pick a d
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
+          type="button"
+          id={id}
+          name={name}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
           className={cn(
             "w-full justify-start text-left font-normal h-11",
             !value && "text-muted-foreground",

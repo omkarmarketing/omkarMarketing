@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Invoice Generation Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/invoice');
   });
 
   test('should toggle manual mode and show manual fields', async ({ page }) => {
