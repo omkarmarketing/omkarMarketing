@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { parseDateFromSheet } from "@/lib/date-utils";
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -69,33 +70,54 @@ export async function insertRowChronologically(
       return;
     }
 
-    const headers = values[0];
     const dataRows = values.slice(1);
-    
-    // Find the correct insertion position
+
+    // Find the first existing row dated after the new transaction.
     let insertPosition = dataRows.length; // Default to end
-    
+
     for (let i = 0; i < dataRows.length; i++) {
-      const rowData = dataRows[i];
-      const existingDateStr = rowData[dateIndex];
-      
-      if (existingDateStr) {
-        // Parse the existing date (assuming format dd-mm-yy)
-        const [day, month, year] = existingDateStr.split("-").map(Number);
-        const fullYear = year < 50 ? 2000 + year : 1900 + year; // Handle 2-digit years
-        const existingDate = new Date(fullYear, month - 1, day);
-        
-        // If new date is earlier than existing date, insert here
-        if (newDate < existingDate) {
-          insertPosition = i;
-          break;
-        }
+      // Sheet dates are stored as dd-mm-yy, but older rows may hold serial
+      // numbers or other delimiters, so reuse the shared parser.
+      const existingDate = parseDateFromSheet(dataRows[i]?.[dateIndex]);
+      if (isNaN(existingDate.getTime())) continue;
+
+      if (newDate < existingDate) {
+        insertPosition = i;
+        break;
       }
     }
-    
-    // Insert at the correct position (1-based indexing, +1 for header row)
-    const insertRowIndex = insertPosition + 2; // +2 because 1-based and we have header row
-    
+
+    if (insertPosition === dataRows.length) {
+      // Chronologically last, so there is nothing to shift down.
+      await appendRow(sheetId, sheetName, row);
+      return;
+    }
+
+    // dataRows[i] lives on sheet row i + 2 (header row occupies row 1).
+    const insertRowIndex = insertPosition + 2;
+
+    // Open a blank row first. Writing straight to insertRowIndex would
+    // overwrite the transaction currently stored there.
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: {
+        requests: [
+          {
+            insertDimension: {
+              range: {
+                sheetId: await ensureSheet(sheetId, sheetName),
+                dimension: "ROWS",
+                startIndex: insertRowIndex - 1, // 0-based index
+                endIndex: insertRowIndex, // exclusive end
+              },
+              // Inherit from the row below so data rows never pick up header formatting.
+              inheritFromBefore: false,
+            },
+          },
+        ],
+      },
+    });
+
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
       range: `'${sheetName}'!A${insertRowIndex}`,
@@ -104,7 +126,7 @@ export async function insertRowChronologically(
         values: [row],
       },
     });
-    
+
   } catch (error) {
     console.error("Error inserting row chronologically:", error);
     throw new Error(
