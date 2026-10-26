@@ -5,7 +5,6 @@ import { Analytics } from "@vercel/analytics/next"
 import { ClerkProvider } from "@clerk/nextjs"
 import { isClerkConfigured } from "@/lib/auth"
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration"
-import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
@@ -48,24 +47,28 @@ export default function RootLayout({
 
   const body = (
     <body className={`font-sans antialiased`}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
-        {children}
-        <Toaster />
-      </ThemeProvider>
+      {children}
+      <Toaster />
       <ServiceWorkerRegistration />
       <Analytics />
     </body>
   )
 
-  // next-themes sets the class on <html> before paint, which the server
-  // markup cannot match; suppressHydrationWarning covers exactly that.
+  // Runs before paint: React cannot know the stored choice during SSR, so
+  // without this a collapsed sidebar flashes open on every page load.
+  const sidebarPreference = (
+    <script
+      dangerouslySetInnerHTML={{
+        __html:
+          "try{if(localStorage.getItem('omkar:sidebar-open')==='false')" +
+          "document.documentElement.setAttribute('data-sidebar','closed')}catch(e){}",
+      }}
+    />
+  )
+
   const document = (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
+      <head>{sidebarPreference}</head>
       {body}
     </html>
   )

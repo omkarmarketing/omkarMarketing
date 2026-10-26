@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation"
 import { SignOutButton } from "@clerk/nextjs"
 import { Building2, Package, FileText, ReceiptText, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 const navItems = [
   { href: "/transactions", label: "Transactions", icon: FileText },
@@ -14,7 +13,7 @@ const navItems = [
   { href: "/company", label: "Company", icon: Building2 },
 ]
 
-export function Sidebar() {
+export function Sidebar({ open = true }: { open?: boolean }) {
   const pathname = usePathname()
   const isClerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
 
@@ -26,13 +25,15 @@ export function Sidebar() {
   )
 
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-sidebar border-r border-sidebar-border h-screen sticky top-0">
-      <div className="flex items-start justify-between gap-2 p-6 border-b border-sidebar-border">
-        <div>
-          <h1 className="text-xl font-bold text-sidebar-foreground">Omkar Marketing</h1>
-          <p className="text-xs text-muted-foreground mt-1">Business Dashboard</p>
-        </div>
-        <ThemeToggle className="-mr-2 -mt-1 shrink-0" />
+    <aside
+      data-sidebar-panel
+      className={`${
+        open ? "md:flex" : "md:hidden"
+      } hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar h-screen sticky top-0`}
+    >
+      <div className="p-6 border-b border-sidebar-border">
+        <h1 className="text-xl font-bold text-sidebar-foreground">Omkar Marketing</h1>
+        <p className="text-xs text-muted-foreground mt-1">Business Dashboard</p>
       </div>
 
       <nav aria-label="Primary navigation" className="flex-1 p-4 space-y-1">
