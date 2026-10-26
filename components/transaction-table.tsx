@@ -79,6 +79,14 @@ function formatDate(dateString: string): string {
   return formatDateForDisplay(dateString);
 }
 
+// Indian digit grouping, and a fixed 2 decimals on money so the decimal
+// points line up down the column.
+const qtyFormat = new Intl.NumberFormat("en-IN");
+const amountFormat = new Intl.NumberFormat("en-IN", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 function formatDateForInput(dateString: string): string {
   const date = parseDateFromSheet(dateString);
   if (Number.isNaN(date.getTime())) return "";
@@ -622,8 +630,8 @@ export function TransactionTable({
                   </div>
                   <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <div><dt className="text-muted-foreground">Product</dt><dd>{tx.product}</dd></div>
-                    <div><dt className="text-muted-foreground">Quantity</dt><dd>{Number(tx.qty || 0)}</dd></div>
-                    <div><dt className="text-muted-foreground">Price</dt><dd>{Number(tx.price || 0).toFixed(2)}</dd></div>
+                    <div><dt className="text-muted-foreground">Quantity</dt><dd className="font-medium tabular-nums">{qtyFormat.format(Number(tx.qty || 0))}</dd></div>
+                    <div><dt className="text-muted-foreground">Price</dt><dd className="font-medium tabular-nums">{amountFormat.format(Number(tx.price || 0))}</dd></div>
                     <div className="col-span-2"><dt className="text-muted-foreground">Remarks</dt><dd>{tx.remarks || "—"}</dd></div>
                   </dl>
                   <div className="mt-3 flex gap-2">
@@ -649,36 +657,36 @@ export function TransactionTable({
             </div>
             <div className="hidden overflow-x-auto md:block">
               <Table>
-                <TableHeader className="bg-muted/50">
+                <TableHeader className="sticky top-0 z-10 bg-muted">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="font-semibold text-foreground/80 py-4">
+                    <TableHead className="font-semibold text-foreground/80 py-3 whitespace-nowrap">
                       Date
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4">
+                    <TableHead className="font-semibold text-foreground/80 py-3 whitespace-nowrap">
                       Seller Company
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4">
+                    <TableHead className="font-semibold text-foreground/80 py-3 whitespace-nowrap">
                       Seller City
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4">
+                    <TableHead className="font-semibold text-foreground/80 py-3 whitespace-nowrap">
                       Buyer Company
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4">
+                    <TableHead className="font-semibold text-foreground/80 py-3 whitespace-nowrap">
                       Buyer City
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4">
+                    <TableHead className="font-semibold text-foreground/80 py-3 whitespace-nowrap">
                       Product Name
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4 text-right">
+                    <TableHead className="font-semibold text-foreground/80 py-3 text-right whitespace-nowrap">
                       Qty
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4 text-right">
+                    <TableHead className="font-semibold text-foreground/80 py-3 text-right whitespace-nowrap">
                       Price
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4">
+                    <TableHead className="font-semibold text-foreground/80 py-3 whitespace-nowrap">
                       Remarks
                     </TableHead>
-                    <TableHead className="font-semibold text-foreground/80 py-4 text-right">
+                    <TableHead className="font-semibold text-foreground/80 py-3 text-right whitespace-nowrap">
                       Actions
                     </TableHead>
                   </TableRow>
@@ -710,7 +718,7 @@ export function TransactionTable({
                           key={`${tx._sheetName}-${tx._rowIndex ?? idx}`}
                           className="border-b border-border/50 hover:bg-accent/20 transition-colors duration-150"
                         >
-                          <TableCell className="py-4">
+                          <TableCell className="py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
                               <span className="font-medium">
@@ -718,7 +726,7 @@ export function TransactionTable({
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="py-4">
+                          <TableCell className="py-3">
                             <div className="font-medium">
                               {tx.sellerCompanyName}
                             </div>
@@ -726,10 +734,10 @@ export function TransactionTable({
                               Seller
                             </div>
                           </TableCell>
-                          <TableCell className="py-4 text-muted-foreground">
+                          <TableCell className="py-3 text-muted-foreground">
                             {tx.sellerCompanyCity || "-"}
                           </TableCell>
-                          <TableCell className="py-4">
+                          <TableCell className="py-3">
                             <div className="font-medium">
                               {tx.buyerCompanyName}
                             </div>
@@ -737,25 +745,21 @@ export function TransactionTable({
                               Buyer
                             </div>
                           </TableCell>
-                          <TableCell className="py-4 text-muted-foreground">
+                          <TableCell className="py-3 text-muted-foreground">
                             {tx.buyerCompanyCity || "-"}
                           </TableCell>
-                          <TableCell className="py-4">
+                          <TableCell className="py-3">
                             <Badge variant="secondary" className="text-xs">
                               {tx.product}
                             </Badge>
                           </TableCell>
-                          <TableCell className="py-4 text-center font-medium">
-                            <div className="flex justify-center items-center gap-1">
-                              <span>{qty}</span>
-                            </div>
+                          <TableCell className="py-3 text-right font-medium tabular-nums whitespace-nowrap">
+                            {qtyFormat.format(qty)}
                           </TableCell>
-                          <TableCell className="py-4 text-center font-medium">
-                            <div className="flex justify-center items-center gap-1">
-                              <span>{price.toFixed(2)}</span>
-                            </div>
+                          <TableCell className="py-3 text-right font-medium tabular-nums whitespace-nowrap">
+                            {amountFormat.format(price)}
                           </TableCell>
-                          <TableCell className="py-4">
+                          <TableCell className="py-3">
                             <div
                               className="max-w-[120px] truncate text-sm text-muted-foreground"
                               title={tx.remarks || "-"}
@@ -763,7 +767,7 @@ export function TransactionTable({
                               {tx.remarks || "-"}
                             </div>
                           </TableCell>
-                          <TableCell className="py-4 text-right">
+                          <TableCell className="py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Button
                                 variant="outline"
