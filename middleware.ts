@@ -23,6 +23,10 @@ const withClerkProtection = clerkMiddleware(async (auth, req) => {
   );
 
   return response;
+}, {
+  // Without this, auth.protect() sends signed-out users to Clerk's hosted
+  // account portal instead of this app's own sign-in page.
+  signInUrl: "/login",
 });
 
 export default function middleware(req: NextRequest, event: NextFetchEvent) {

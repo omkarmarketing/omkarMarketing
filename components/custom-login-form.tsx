@@ -56,7 +56,7 @@ export function CustomLoginForm() {
 
 function ConfiguredCustomLoginForm() {
   const router = useRouter();
-  const { signIn, isLoaded } = useSignIn();
+  const { signIn, setActive, isLoaded } = useSignIn();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -80,6 +80,10 @@ function ConfiguredCustomLoginForm() {
       });
 
       if (result.status === "complete") {
+        // signIn.create() only creates the session; without setActive it is
+        // never made the active session, so protected routes still see a
+        // signed-out browser and bounce straight back to this page.
+        await setActive({ session: result.createdSessionId });
         toast({
           title: "Login successful",
           description: "Welcome back!",

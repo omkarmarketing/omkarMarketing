@@ -26,9 +26,20 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Clerk round-trips sign-in through cross-origin redirects carrying __clerk_*
+// query parameters. The service worker must stay out of that handshake so the
+// browser follows those redirects natively.
+function isAuthNavigation(url) {
+  for (const name of url.searchParams.keys()) {
+    if (name.startsWith("__clerk")) return true;
+  }
+  return false;
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || request.mode !== "navigate") return;
+  if (isAuthNavigation(new URL(request.url))) return;
 
   event.respondWith(
     fetch(request).catch(async () => {
