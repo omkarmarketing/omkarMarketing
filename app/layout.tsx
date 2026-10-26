@@ -5,6 +5,8 @@ import { Analytics } from "@vercel/analytics/next"
 import { ClerkProvider } from "@clerk/nextjs"
 import { isClerkConfigured } from "@/lib/auth"
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration"
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -46,14 +48,30 @@ export default function RootLayout({
 
   const body = (
     <body className={`font-sans antialiased`}>
-      {children}
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        {children}
+        <Toaster />
+      </ThemeProvider>
       <ServiceWorkerRegistration />
       <Analytics />
     </body>
   )
 
+  // next-themes sets the class on <html> before paint, which the server
+  // markup cannot match; suppressHydrationWarning covers exactly that.
+  const document = (
+    <html lang="en" suppressHydrationWarning>
+      {body}
+    </html>
+  )
+
   if (!shouldUseClerk) {
-    return <html lang="en">{body}</html>
+    return document
   }
 
   return (
@@ -61,7 +79,7 @@ export default function RootLayout({
       publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
       signInUrl="/login"
     >
-      <html lang="en">{body}</html>
+      {document}
     </ClerkProvider>
   )
 }

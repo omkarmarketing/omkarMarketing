@@ -3,67 +3,39 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { SignOutButton } from "@clerk/nextjs"
-import { Home, Building2, Package, FileText, ReceiptText, LogOut } from "lucide-react"
+import { Building2, Package, FileText, ReceiptText, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 const navItems = [
   { href: "/transactions", label: "Transactions", icon: FileText },
   { href: "/invoice", label: "Invoice", icon: ReceiptText },
-  { href: "/product", label: "Product", icon: Package },                                                                                                            
+  { href: "/product", label: "Product", icon: Package },
   { href: "/company", label: "Company", icon: Building2 },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const isClerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
 
-  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
-    return (
-      <aside className="hidden md:flex flex-col w-64 bg-card border-r border-border h-screen sticky top-0">
-        <div className="p-6 border-b border-border">
-          <h1 className="text-xl font-bold text-foreground">Omkar Marketing</h1>
-          <p className="text-xs text-muted-foreground mt-1">Business Dashboard</p>
-        </div>
-
-        <nav aria-label="Primary navigation" className="flex-1 p-4 space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                aria-current={isActive ? "page" : undefined}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
-              </Link>
-            )
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-border">
-          <Link href="/login">
-            <Button variant="outline" className="w-full gap-2 bg-transparent">
-              <LogOut className="w-4 h-4" />
-              Sign In
-            </Button>
-          </Link>
-        </div>
-      </aside>
-    )
-  }
+  const signOutControl = (
+    <Button variant="outline" className="w-full gap-2 bg-transparent">
+      <LogOut className="w-4 h-4" />
+      {isClerkConfigured ? "Sign Out" : "Sign In"}
+    </Button>
+  )
 
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-card border-r border-border h-screen sticky top-0">
-      <div className="p-6 border-b border-border">
-        <h1 className="text-xl font-bold text-foreground">Omkar Marketing</h1>
-        <p className="text-xs text-muted-foreground mt-1">Business Dashboard</p>
+    <aside className="hidden md:flex flex-col w-64 bg-sidebar border-r border-sidebar-border h-screen sticky top-0">
+      <div className="flex items-start justify-between gap-2 p-6 border-b border-sidebar-border">
+        <div>
+          <h1 className="text-xl font-bold text-sidebar-foreground">Omkar Marketing</h1>
+          <p className="text-xs text-muted-foreground mt-1">Business Dashboard</p>
+        </div>
+        <ThemeToggle className="-mr-2 -mt-1 shrink-0" />
       </div>
 
-      <nav aria-label="Primary navigation" className="flex-1 p-4 space-y-2">
+      <nav aria-label="Primary navigation" className="flex-1 p-4 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -73,7 +45,9 @@ export function Sidebar() {
               aria-current={isActive ? "page" : undefined}
               href={item.href}
               className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+                isActive
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               }`}
             >
               <Icon className="w-5 h-5" />
@@ -83,13 +57,12 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-border">
-        <SignOutButton redirectUrl="/login">
-          <Button variant="outline" className="w-full gap-2 bg-transparent">
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </Button>
-        </SignOutButton>
+      <div className="p-4 border-t border-sidebar-border">
+        {isClerkConfigured ? (
+          <SignOutButton redirectUrl="/login">{signOutControl}</SignOutButton>
+        ) : (
+          <Link href="/login">{signOutControl}</Link>
+        )}
       </div>
     </aside>
   )
