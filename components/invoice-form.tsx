@@ -140,7 +140,7 @@ export function InvoiceForm({
       endDate: toDateInputValue(new Date()),
       brokerageRate: 2,
       description: "",
-      totalAmount: 0,
+      totalAmount: undefined,
       invoiceDate: toDateInputValue(new Date()),
     },
   });
@@ -338,7 +338,7 @@ export function InvoiceForm({
         endDate: toDateInputValue(new Date()),
         brokerageRate: 2,
         description: "",
-        totalAmount: 0,
+        totalAmount: undefined,
         invoiceDate: toDateInputValue(new Date()),
       });
       
@@ -595,8 +595,10 @@ export function InvoiceForm({
                           <Input
                             type="number"
                             step="0.01"
+                            inputMode="decimal"
                             {...field}
-                            placeholder="0.00"
+                            value={field.value ?? ""}
+                            placeholder="Enter amount"
                             className="h-11"
                           />
                         </FormControl>

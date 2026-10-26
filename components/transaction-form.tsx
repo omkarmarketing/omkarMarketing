@@ -43,7 +43,9 @@ const transactionSchema = z.object({
   date: z.string().min(1, "Date is required"),
   product: z.string().trim().min(1, "Product is required"),
   qty: z.coerce.number().int().positive("Quantity must be a positive integer"),
-  price: z.coerce.number().positive("Price must be positive"),
+  price: z.coerce
+    .number({ invalid_type_error: "Price is required" })
+    .positive("Price must be positive"),
   remarks: z.string().optional(),
   brokerageRate: z.coerce.number().min(0).optional().default(0),
 });
@@ -108,7 +110,7 @@ export function TransactionForm({
       date: new Date().toISOString().split("T")[0],
       product: "",
       qty: 1,
-      price: 0,
+      price: undefined,
       remarks: "",
       brokerageRate: 0,
     },
@@ -250,7 +252,7 @@ export function TransactionForm({
       date: new Date().toISOString().split("T")[0],
       product: "",
       qty: 1,
-      price: 0,
+      price: undefined,
       remarks: "",
     });
     setProductInputValue("");
@@ -259,7 +261,7 @@ export function TransactionForm({
   function resetEntryFields() {
     form.setValue("product", "");
     form.setValue("qty", 1);
-    form.setValue("price", 0);
+    form.resetField("price");
     form.setValue("remarks", "");
     setProductInputValue("");
   }
@@ -664,7 +666,15 @@ export function TransactionForm({
                       <FormItem>
                         <FormLabel>Price</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" placeholder="0" {...field} disabled={isLoading} />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            inputMode="decimal"
+                            placeholder="Enter price"
+                            {...field}
+                            value={field.value ?? ""}
+                            disabled={isLoading}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -872,7 +882,15 @@ export function TransactionForm({
                       <FormItem>
                         <FormLabel>Price</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" placeholder="0" {...field} disabled={isLoading} />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            inputMode="decimal"
+                            placeholder="Enter price"
+                            {...field}
+                            value={field.value ?? ""}
+                            disabled={isLoading}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
