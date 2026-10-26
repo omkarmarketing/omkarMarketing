@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSignIn } from "@clerk/nextjs";
+import { SignOutButton, useAuth, useSignIn } from "@clerk/nextjs";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,6 +57,7 @@ export function CustomLoginForm() {
 function ConfiguredCustomLoginForm() {
   const router = useRouter();
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -98,6 +99,16 @@ function ConfiguredCustomLoginForm() {
       }
     } catch (error: any) {
       console.error("Login error:", error);
+      // Clerk refuses a second sign-in while a session is active. Landing here
+      // means the browser holds a session the server did not accept, so say so
+      // instead of reporting bad credentials.
+      if (error?.errors?.[0]?.code === "session_exists") {
+        toast({
+          title: "You are already signed in",
+          description: "Continue to the app, or sign out and try again.",
+        });
+        return;
+      }
       toast({
         title: "Login failed",
         description:
@@ -108,6 +119,31 @@ function ConfiguredCustomLoginForm() {
       setIsLoading(false);
     }
   };
+
+  if (authLoaded && isSignedIn) {
+    return (
+      <Card className="w-full max-w-md bg-card rounded-lg shadow-lg border border-border">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold text-foreground">
+            You are already signed in
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            If the app keeps returning you here, sign out and sign in again.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <Button className="h-11 w-full" onClick={() => router.push("/transactions")}>
+            Continue to the app
+          </Button>
+          <SignOutButton redirectUrl="/login">
+            <Button variant="outline" className="h-11 w-full">
+              Sign out
+            </Button>
+          </SignOutButton>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md bg-card rounded-lg shadow-lg border border-border">
