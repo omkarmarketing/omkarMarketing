@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { ProductForm } from "@/components/product-form"
 import { ProductTable } from "@/components/product-table"
+import { PageHeader } from "@/components/page-header"
 
 export function ProductPageClient({
   initialProducts,
@@ -15,17 +16,15 @@ export function ProductPageClient({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Product Master</h1>
-        <p className="text-muted-foreground mt-1">Manage all registered products</p>
-      </div>
+      <PageHeader
+        title="Product Master"
+        description="Manage all registered products"
+      />
 
-      <div className="max-w-2xl">
-        <ProductForm 
-          onSuccess={() => setRefreshKey((k) => k + 1)} 
-          initialIsAmit={initialIsAmit}
-        />
-      </div>
+      <ProductForm
+        onSuccess={() => setRefreshKey((k) => k + 1)}
+        initialIsAmit={initialIsAmit}
+      />
 
       <ProductTable 
         refreshTrigger={refreshKey} 

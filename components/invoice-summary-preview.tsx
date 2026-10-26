@@ -131,7 +131,7 @@ export function InvoiceSummaryPreview({
         </div>
       )}
       {!summary.isManual && transactions.length === 0 && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900">
+        <p className="rounded-md border border-warning/30 bg-warning/10 p-3 text-foreground">
           No transactions were found for this company and date range. Adjust the
           dates before downloading an invoice.
         </p>

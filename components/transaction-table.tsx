@@ -31,6 +31,32 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { parseDateFromSheet } from "@/lib/date-utils";
+import { DatePicker } from "@/components/ui/date-picker";
+import { DataEmpty, DataError, DataLoading } from "@/components/data-state";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+// The filters hold "yyyy-MM-dd" strings; DatePicker works in Date objects.
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function fromDateInputValue(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = parseDateFromSheet(value);
+  return isNaN(parsed.getTime()) ? undefined : parsed;
+}
 
 interface Transaction {
   date: string;
@@ -77,6 +103,9 @@ export function TransactionTable({
   const hasServerProvidedRows = useRef(initialData.length > 0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    { rowIndex: number; sheetName?: string } | null
+  >(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -233,52 +262,45 @@ export function TransactionTable({
       });
       return;
     }
-    if (window.confirm("Are you sure you want to delete this transaction?")) {
-      try {
-        const response = await fetch("/api/transactions", {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ rowIndex, sheetName }),
-        });
+    try {
+      const response = await fetch("/api/transactions", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ rowIndex, sheetName }),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to delete transaction");
-        }
-
-        toast({
-          title: "Success",
-          description: "Transaction deleted successfully",
-        });
-
-        // Refresh the transactions list
-        if (onRefresh) {
-          onRefresh();
-        } else {
-          // Fallback to refreshTrigger update
-          window.location.reload();
-        }
-      } catch (error) {
-        toast({
-          title: "Error",
-          description:
-            error instanceof Error
-              ? error.message
-              : "Failed to delete transaction",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete transaction");
       }
+
+      toast({
+        title: "Success",
+        description: "Transaction deleted successfully",
+      });
+
+      // Refresh the transactions list
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        // Fallback to refreshTrigger update
+        window.location.reload();
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete transaction",
+        variant: "destructive",
+      });
     }
   }
 
-  if (isLoading)
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        Loading transactions...
-      </div>
-    );
+  if (isLoading) return <DataLoading rows={5} label="Loading transactions" />;
 
   // Handle transaction update
   const handleUpdateTransaction = async (e: React.FormEvent) => {
@@ -355,8 +377,8 @@ export function TransactionTable({
     <>
       {/* Edit Transaction Modal */}
       {editingTransaction && editingRowIndex !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="edit-transaction-title" className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-transaction-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg">
             <h3 id="edit-transaction-title" className="text-lg font-semibold mb-4">Edit Transaction</h3>
             <form onSubmit={handleUpdateTransaction}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -528,25 +550,27 @@ export function TransactionTable({
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label className="space-y-1 text-sm">
                   <span className="text-muted-foreground">From date</span>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(event) => {
-                      setStartDate(event.target.value);
+                  <DatePicker
+                    value={fromDateInputValue(startDate)}
+                    onChange={(date) => {
+                      setStartDate(date ? toDateInputValue(date) : "");
                       setCurrentPage(1);
                     }}
+                    placeholder="Select start date"
+                    displayFormat="dd/MM/yyyy"
                     className="h-10"
                   />
                 </label>
                 <label className="space-y-1 text-sm">
                   <span className="text-muted-foreground">To date</span>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(event) => {
-                      setEndDate(event.target.value);
+                  <DatePicker
+                    value={fromDateInputValue(endDate)}
+                    onChange={(date) => {
+                      setEndDate(date ? toDateInputValue(date) : "");
                       setCurrentPage(1);
                     }}
+                    placeholder="Select end date"
+                    displayFormat="dd/MM/yyyy"
                     className="h-10"
                   />
                 </label>
@@ -571,29 +595,17 @@ export function TransactionTable({
         </CardHeader>
         <CardContent>
           {loadError ? (
-            <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
-              <p className="font-medium">Transactions could not be loaded.</p>
-              <p className="mt-1 text-muted-foreground">{loadError}</p>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3"
-                onClick={() => onRefresh ? onRefresh() : window.location.reload()}
-              >
-                Try again
-              </Button>
-            </div>
+            <DataError
+              message={loadError}
+              onRetry={() => (onRefresh ? onRefresh() : window.location.reload())}
+            />
           ) : transactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No transactions recorded yet
-            </div>
+            <DataEmpty message="No transactions recorded yet." />
           ) : (
             <>
             <div className="space-y-3 md:hidden">
               {currentTransactions.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">
-                  No transactions match these filters.
-                </p>
+                <DataEmpty message="No transactions match these filters." />
               ) : currentTransactions.map((tx, idx) => (
                 <article
                   key={`${tx._sheetName}-${tx._rowIndex ?? idx}`}
@@ -627,7 +639,7 @@ export function TransactionTable({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeleteTransaction(tx._rowIndex ?? idx + 2, tx._sheetName)}
+                      onClick={() => setPendingDelete({ rowIndex: tx._rowIndex ?? idx + 2, sheetName: tx._sheetName })}
                     >
                       <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </Button>
@@ -772,10 +784,10 @@ export function TransactionTable({
                                 size="sm"
                                 aria-label={`Delete transaction ${formatDate(tx.date)} ${tx.sellerCompanyName} to ${tx.buyerCompanyName}`}
                                 onClick={() =>
-                                  handleDeleteTransaction(
-                                    tx._rowIndex || idx + 2,
-                                    tx._sheetName,
-                                  )
+                                  setPendingDelete({
+                                    rowIndex: tx._rowIndex || idx + 2,
+                                    sheetName: tx._sheetName,
+                                  })
                                 } // Using the row index from the sheet data
                                 className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                               >
@@ -879,6 +891,36 @@ export function TransactionTable({
           )}
         </CardContent>
       </Card>
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this transaction?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The row is removed from {pendingDelete?.sheetName ?? "its worksheet"}.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const target = pendingDelete;
+                setPendingDelete(null);
+                if (target) {
+                  void handleDeleteTransaction(target.rowIndex, target.sheetName);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -4,6 +4,9 @@ import { InvoiceForm } from "@/components/invoice-form";
 import { useState } from "react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { InvoiceDocument } from "@/components/invoice";
+import { PageHeader } from "@/components/page-header";
+import { buttonVariants } from "@/components/ui/button";
+import { CheckCircle2 } from "lucide-react";
 
 export function InvoicePageClient({ 
   initialCompanies, 
@@ -23,36 +26,32 @@ export function InvoicePageClient({
     : "invoice.pdf";
 
   return (
-    <div className="space-y-6 p-4 max-w-4xl mx-auto w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold">Brokerage Invoice</h1>
-      </div>
+    <div className="w-full space-y-6">
+      <PageHeader
+        title="Brokerage Invoice"
+        description="Generate a brokerage invoice from recorded transactions"
+      />
 
-      <div className="w-full">
-        <InvoiceForm 
-          onInvoiceGenerated={setInvoiceData} 
-          initialCompanies={initialCompanies}
-          initialIsAmit={isAmit}
-        />
-      </div>
+      <InvoiceForm
+        onInvoiceGenerated={setInvoiceData}
+        initialCompanies={initialCompanies}
+        initialIsAmit={isAmit}
+      />
 
       {invoiceData && (
-        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-700 font-semibold mb-4 text-center sm:text-left">
-            Invoice generated successfully!
+        <div className="flex flex-col gap-3 rounded-lg border border-success/30 bg-success/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+            Invoice generated successfully
           </p>
 
-          <div className="flex justify-center">
-            <PDFDownloadLink
-              document={<InvoiceDocument data={invoiceData} />}
-              fileName={fileName}
-              className="pdf-download-link px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base w-full sm:w-auto text-center"
-            >
-              {({ loading }) =>
-                loading ? "Generating PDF..." : `Download ${fileName}`
-              }
-            </PDFDownloadLink>
-          </div>
+          <PDFDownloadLink
+            document={<InvoiceDocument data={invoiceData} />}
+            fileName={fileName}
+            className={buttonVariants({ className: "w-full shrink-0 sm:w-auto" })}
+          >
+            {({ loading }) => (loading ? "Generating PDF..." : "Download PDF")}
+          </PDFDownloadLink>
         </div>
       )}
     </div>

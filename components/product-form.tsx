@@ -113,6 +113,7 @@ export function ProductForm({ onSuccess, initialData, initialIsAmit }: ProductFo
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="productCode"
@@ -160,7 +161,8 @@ export function ProductForm({ onSuccess, initialData, initialIsAmit }: ProductFo
                 )}
               />
             )}
-            <Button type="submit" disabled={isLoading} className="w-full">
+            </div>
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
               {isLoading
                 ? initialData?.productCode
                   ? "Saving..."

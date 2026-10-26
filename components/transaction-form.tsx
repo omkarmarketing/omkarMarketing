@@ -23,6 +23,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const transactionSchema = z.object({
   buyerCompanyName: z.string().trim().min(1, "Buyer is required"),
@@ -229,6 +240,22 @@ export function TransactionForm({
   // Auto-populate buyer city when buyer company changes (handled in selectBuyerCompany)
   // Auto-populate seller city when seller company changes (handled in selectSellerCompany)
 
+  function resetAll() {
+    setPendingTransactions([]);
+    form.reset({
+      buyerCompanyName: "",
+      buyerCity: "",
+      sellerCompanyName: "",
+      sellerCity: "",
+      date: new Date().toISOString().split("T")[0],
+      product: "",
+      qty: 1,
+      price: 0,
+      remarks: "",
+    });
+    setProductInputValue("");
+  }
+
   function resetEntryFields() {
     form.setValue("product", "");
     form.setValue("qty", 1);
@@ -419,8 +446,8 @@ export function TransactionForm({
             {isAmit ? (
               /* AMIT'S CUSTOM LAYOUT */
               <>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="sm:col-span-2">
                     <FormField
                       control={form.control}
                       name="sellerCompanyName"
@@ -440,12 +467,12 @@ export function TransactionForm({
                               />
                               {showSellerSuggestions &&
                                 sellerSuggestions.length > 0 && (
-                                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                  <div className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                                     {sellerSuggestions.map((company) => (
                                       <button
                                         type="button"
                                         key={`${company.companyName}-${company.companyCity}`}
-                                        className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
+                                        className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
                                         onClick={() => selectSellerCompany(company)}
                                       >
                                         {company.companyName} ({company.companyCity})
@@ -480,8 +507,8 @@ export function TransactionForm({
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="sm:col-span-2">
                     <FormField
                       control={form.control}
                       name="buyerCompanyName"
@@ -500,12 +527,12 @@ export function TransactionForm({
                                 autoComplete="off"
                               />
                               {showBuyerSuggestions && buyerSuggestions.length > 0 && (
-                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                <div className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                                   {buyerSuggestions.map((company) => (
                                     <button
                                       type="button"
                                       key={`${company.companyName}-${company.companyCity}`}
-                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
+                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
                                       onClick={() => selectBuyerCompany(company)}
                                     >
                                       {company.companyName} ({company.companyCity})
@@ -540,7 +567,7 @@ export function TransactionForm({
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <FormField
                     control={form.control}
                     name="date"
@@ -576,12 +603,12 @@ export function TransactionForm({
                               autoComplete="off"
                             />
                             {showProductSuggestions && productSuggestions.length > 0 && (
-                              <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                              <div className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                                 {productSuggestions.map((product) => (
                                   <button
                                     type="button"
                                     key={product.productCode}
-                                    className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
+                                    className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
                                     onClick={() => selectProduct(product)}
                                   >
                                     {product.productName} ({product.productCode})
@@ -616,7 +643,7 @@ export function TransactionForm({
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <FormField
                     control={form.control}
                     name="qty"
@@ -661,8 +688,8 @@ export function TransactionForm({
             ) : (
               /* ORIGINAL LAYOUT FOR OTHER USERS */
               <>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="sm:col-span-2">
                     <FormField
                       control={form.control}
                       name="sellerCompanyName"
@@ -679,12 +706,12 @@ export function TransactionForm({
                                 autoComplete="off"
                               />
                               {showSellerSuggestions && sellerSuggestions.length > 0 && (
-                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                <div className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                                   {sellerSuggestions.map((company) => (
                                     <button
                                       type="button"
                                       key={`${company.companyName}-${company.companyCity}`}
-                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
+                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
                                       onClick={() => selectSellerCompany(company)}
                                     >
                                       {company.companyName} ({company.companyCity})
@@ -714,8 +741,8 @@ export function TransactionForm({
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="sm:col-span-2">
                     <FormField
                       control={form.control}
                       name="buyerCompanyName"
@@ -732,12 +759,12 @@ export function TransactionForm({
                                 autoComplete="off"
                               />
                               {showBuyerSuggestions && buyerSuggestions.length > 0 && (
-                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                                <div className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                                   {buyerSuggestions.map((company) => (
                                     <button
                                       type="button"
                                       key={`${company.companyName}-${company.companyCity}`}
-                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
+                                      className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
                                       onClick={() => selectBuyerCompany(company)}
                                     >
                                       {company.companyName} ({company.companyCity})
@@ -803,12 +830,12 @@ export function TransactionForm({
                               autoComplete="off"
                             />
                             {showProductSuggestions && productSuggestions.length > 0 && (
-                              <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                              <div className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                                 {productSuggestions.map((product) => (
                                   <button
                                     type="button"
                                     key={product.productCode}
-                                    className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm hover:bg-gray-100"
+                                    className="block w-full border-0 bg-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
                                     onClick={() => selectProduct(product)}
                                   >
                                     {product.productName} ({product.productCode})
@@ -923,31 +950,39 @@ export function TransactionForm({
               >
                 Add Another
               </Button>
-              <Button
-                type="button"
-                disabled={isLoading}
-                variant="outline"
-                onClick={() => {
-                  if (pendingTransactions.length > 0 && !window.confirm("Clear the form and discard all unsaved pending transactions? Saved transactions will not be affected.")) {
-                    return;
-                  }
-                  setPendingTransactions([]);
-                  form.reset({
-                    buyerCompanyName: "",
-                    buyerCity: "",
-                    sellerCompanyName: "",
-                    sellerCity: "",
-                    date: new Date().toISOString().split("T")[0],
-                    product: "",
-                    qty: 1,
-                    price: 0,
-                    remarks: "",
-                  });
-                  setProductInputValue("");
-                }}
-              >
-                Clear
-              </Button>
+              {pendingTransactions.length > 0 ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="outline" disabled={isLoading}>
+                      Clear
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Discard pending transactions?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This clears the form and discards{" "}
+                        {pendingTransactions.length} unsaved{" "}
+                        {pendingTransactions.length === 1 ? "entry" : "entries"}.
+                        Transactions already saved are not affected.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                      <AlertDialogAction onClick={resetAll}>Discard</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isLoading}
+                  onClick={resetAll}
+                >
+                  Clear
+                </Button>
+              )}
             </div>
           </form>
         </Form>

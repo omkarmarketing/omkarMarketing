@@ -7,7 +7,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { Pencil, Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { CompanyForm } from "./company-form"
+import { DataEmpty, DataError, DataLoading } from "@/components/data-state"
 
 interface Company {
   companyName: string
@@ -40,6 +51,7 @@ export function CompanyTable({
   const [companies, setCompanies] = useState<Company[]>(initialCompanies)
   const [isLoading, setIsLoading] = useState(initialCompanies.length === 0)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [reloadKey, setReloadKey] = useState(0)
   const lastRefreshTrigger = useRef(refreshTrigger)
@@ -89,7 +101,7 @@ export function CompanyTable({
     }
   }, [companies.length, refreshTrigger, reloadKey, toast])
 
-  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading companies...</div>
+  if (isLoading) return <DataLoading rows={4} label="Loading companies" />
 
   const filteredCompanies = companies.filter((company) =>
     `${company.companyName} ${company.companyCity}`.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -102,10 +114,6 @@ export function CompanyTable({
   }
 
   const handleDelete = async (companyName: string) => {
-    if (!window.confirm("Are you sure you want to delete this company?")) {
-      return
-    }
-
     try {
       const response = await fetch(`/api/company?companyName=${encodeURIComponent(companyName)}`, {
         method: "DELETE",
@@ -143,7 +151,7 @@ export function CompanyTable({
     if (!isOpen || !company) return null
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm">
         <div role="dialog" aria-modal="true" aria-labelledby="edit-company-title" className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <h3 id="edit-company-title" className="text-lg font-semibold mb-4">Edit Company</h3>
@@ -178,16 +186,11 @@ export function CompanyTable({
             className="mb-4 h-11"
           />
           {loadError ? (
-            <div role="alert" className="rounded-md border border-destructive/30 p-4 text-sm">
-              <p>{loadError}</p>
-              <Button type="button" variant="outline" className="mt-3" onClick={() => setReloadKey((key) => key + 1)}>
-                Try again
-              </Button>
-            </div>
+            <DataError message={loadError} onRetry={() => setReloadKey((key) => key + 1)} />
           ) : filteredCompanies.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              {companies.length === 0 ? "No companies added yet." : "No companies match your search."}
-            </p>
+            <DataEmpty
+              message={companies.length === 0 ? "No companies added yet." : "No companies match your search."}
+            />
           ) : (
           <>
           <div className="space-y-3 md:hidden">
@@ -199,7 +202,7 @@ export function CompanyTable({
                   <Button type="button" variant="outline" size="sm" onClick={() => handleEdit(company, idx)}>
                     <Pencil className="mr-2 h-4 w-4" /> Edit
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => handleDelete(company.companyName)}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setPendingDelete(company.companyName)}>
                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                   </Button>
                 </div>
@@ -235,8 +238,8 @@ export function CompanyTable({
                           variant="outline"
                           size="sm"
                           aria-label={`Delete ${company.companyName}`}
-                          onClick={() => handleDelete(company.companyName)}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                          onClick={() => setPendingDelete(company.companyName)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -264,6 +267,34 @@ export function CompanyTable({
           onSave={handleUpdateSuccess}
         />
       )}
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this company?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete} will be removed. This cannot be undone, and it is refused if
+              existing transactions still reference it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const target = pendingDelete
+                setPendingDelete(null)
+                if (target) void handleDelete(target)
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

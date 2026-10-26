@@ -98,6 +98,7 @@ export function CompanyForm({ onSuccess, initialData }: CompanyFormProps) {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="companyName"
@@ -124,7 +125,8 @@ export function CompanyForm({ onSuccess, initialData }: CompanyFormProps) {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isLoading} className="w-full">
+            </div>
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
               {isLoading
                 ? initialData?.companyName
                   ? "Saving..."

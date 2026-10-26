@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { CompanyForm } from "@/components/company-form"
 import { CompanyTable } from "@/components/company-table"
+import { PageHeader } from "@/components/page-header"
 
 export function CompanyPageClient({
   initialCompanies
@@ -13,14 +14,12 @@ export function CompanyPageClient({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Company Master</h1>
-        <p className="text-muted-foreground mt-1">Manage all registered companies</p>
-      </div>
+      <PageHeader
+        title="Company Master"
+        description="Manage all registered companies"
+      />
 
-      <div className="max-w-2xl">
-        <CompanyForm onSuccess={() => setRefreshKey((k) => k + 1)} />
-      </div>
+      <CompanyForm onSuccess={() => setRefreshKey((k) => k + 1)} />
 
       <CompanyTable 
         refreshTrigger={refreshKey} 
