@@ -229,12 +229,21 @@ export function VoiceDictationDialog({
         body: JSON.stringify({
           text: transcript,
           apiKey: geminiApiKey.trim() || undefined,
+          companies: companies || [],
+          products: products || [],
         }),
       });
 
-      const data = await res.json();
+      const responseText = await res.text();
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(`Server returned error (${res.status}): ${responseText.slice(0, 150)}`);
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || "Failed to parse transactions with AI.");
+        throw new Error(data?.error || `Failed to parse transactions with AI (${res.status}).`);
       }
 
       if (!data.transactions || data.transactions.length === 0) {

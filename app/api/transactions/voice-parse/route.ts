@@ -5,9 +5,13 @@ import { getCompanySheetName, getProductSheetName } from "@/lib/sheets-helper";
 import { globalCache } from "@/lib/cache";
 import { z } from "zod";
 
+export const maxDuration = 30;
+
 const requestSchema = z.object({
   text: z.string().trim().min(2, "Transcript or text is required"),
   apiKey: z.string().trim().optional(),
+  companies: z.array(z.any()).optional(),
+  products: z.array(z.any()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -39,31 +43,39 @@ export async function POST(req: NextRequest) {
 
     const transcript = parsedBody.data.text;
 
-    // Fetch master data for context
-    let companies: any[] = [];
-    let products: any[] = [];
+    // Use companies and products passed from client if available, else fetch from sheets
+    let companies: any[] = parsedBody.data.companies || [];
+    let products: any[] = parsedBody.data.products || [];
 
-    if (isClerkConfigured()) {
+    if (companies.length === 0 && isClerkConfigured()) {
       try {
         const email = await verifyUserAccess();
         const sheetId = await getSheetIdForUser();
 
         const compCacheKey = `companies_${email}`;
-        const prodCacheKey = `products_${email}`;
-
         companies = globalCache.get<any[]>(compCacheKey) || [];
         if (companies.length === 0) {
           companies = await getSheetValues(sheetId, getCompanySheetName());
           globalCache.set(compCacheKey, companies, 10 * 60 * 1000);
         }
+      } catch (err) {
+        console.warn("Could not fetch companies from sheets:", err);
+      }
+    }
 
+    if (products.length === 0 && isClerkConfigured()) {
+      try {
+        const email = await verifyUserAccess();
+        const sheetId = await getSheetIdForUser();
+
+        const prodCacheKey = `products_${email}`;
         products = globalCache.get<any[]>(prodCacheKey) || [];
         if (products.length === 0) {
           products = await getSheetValues(sheetId, getProductSheetName());
           globalCache.set(prodCacheKey, products, 10 * 60 * 1000);
         }
       } catch (err) {
-        console.warn("Could not fetch user sheet master data, continuing with empty masters:", err);
+        console.warn("Could not fetch products from sheets:", err);
       }
     }
 
