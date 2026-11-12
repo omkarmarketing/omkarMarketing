@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -80,7 +80,14 @@ export function VoiceDictationDialog({
   const [extractionError, setExtractionError] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef("");
+  const dictationBaseRef = useRef("");
   const { toast } = useToast();
+
+  const updateTranscript = useCallback((value: string) => {
+    transcriptRef.current = value;
+    setTranscript(value);
+  }, []);
 
   // Load stored Gemini API key from localStorage if present
   useEffect(() => {
@@ -124,7 +131,9 @@ export function VoiceDictationDialog({
         for (let i = 0; i < event.results.length; i++) {
           currentText += event.results[i][0].transcript + " ";
         }
-        setTranscript(currentText.trim());
+        updateTranscript(
+          [dictationBaseRef.current, currentText.trim()].filter(Boolean).join(" "),
+        );
       };
 
       recognition.onerror = (event: any) => {
@@ -170,7 +179,7 @@ export function VoiceDictationDialog({
         }
       }
     };
-  }, [language, toast]);
+  }, [language, toast, updateTranscript]);
 
   const toggleListening = () => {
     if (!speechSupported) {
@@ -193,6 +202,7 @@ export function VoiceDictationDialog({
       try {
         if (recognitionRef.current) {
           recognitionRef.current.lang = language;
+          dictationBaseRef.current = transcriptRef.current.trim();
           recognitionRef.current.start();
           setIsListening(true);
         }
@@ -206,7 +216,7 @@ export function VoiceDictationDialog({
   const loadSampleTranscript = () => {
     const today = new Date().toISOString().split("T")[0];
     const sample = `Aaj no sauda: Radhe Trading e Ambika Agro ne 200 guni Jeera 2850 na bhav ma aapiyu. Bijo saudo: Krishna Traders e Patel Enterprise ne 500 guni Groundnut 1400 ma vechi, tariq ${today}.`;
-    setTranscript(sample);
+    updateTranscript(sample);
   };
 
   const handleExtract = async () => {
@@ -388,7 +398,7 @@ export function VoiceDictationDialog({
 
       // Clear & Close
       setExtractedRows([]);
-      setTranscript("");
+      updateTranscript("");
       setIsOpen(false);
       onSuccess?.();
     } catch (err: any) {
@@ -540,7 +550,7 @@ export function VoiceDictationDialog({
                   variant="ghost"
                   size="sm"
                   className="h-8 text-xs text-muted-foreground hover:text-destructive"
-                  onClick={() => setTranscript("")}
+                  onClick={() => updateTranscript("")}
                 >
                   Clear
                 </Button>
@@ -550,7 +560,7 @@ export function VoiceDictationDialog({
 
           <Textarea
             value={transcript}
-            onChange={(e) => setTranscript(e.target.value)}
+            onChange={(e) => updateTranscript(e.target.value)}
             placeholder="Click 'Start Dictating' and speak, or paste text from WhatsApp/notes (e.g. Radhe Trading sold 200 bags Jeera to Ambika Agro at 2850 today)..."
             rows={3}
             className="text-sm resize-y"

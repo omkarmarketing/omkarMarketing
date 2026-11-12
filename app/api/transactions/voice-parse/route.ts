@@ -135,6 +135,7 @@ MATCHING RULES:
 3. Quantity must be a positive integer number.
 4. Price must be a positive number.
 5. If the input contains multiple deals (e.g. "Deal 1: ... Deal 2: ..."), extract each as a separate transaction in the array.
+6. A single sentence or uninterrupted dictation can describe multiple deals. Split every distinct seller/buyer/product/quantity/price combination into its own transaction, preserve the spoken order, and never merge separate deals or stop after the first one.
 
 OUTPUT FORMAT:
 Return a JSON object conforming strictly to this structure:
