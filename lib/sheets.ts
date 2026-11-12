@@ -29,24 +29,35 @@ export async function appendRow(
   sheetName: string,
   row: (string | number)[],
 ): Promise<void> {
+  return appendRows(sheetId, sheetName, [row]);
+}
+
+// Append multiple rows to a sheet in a single batch
+export async function appendRows(
+  sheetId: string,
+  sheetName: string,
+  rows: (string | number)[][],
+): Promise<void> {
+  if (rows.length === 0) return;
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
       range: `'${sheetName}'!A:Z`,
       valueInputOption: "USER_ENTERED",
       requestBody: {
-        values: [row],
+        values: rows,
       },
     });
   } catch (error) {
-    console.error("Error appending row to Google Sheets:", error);
+    console.error("Error appending rows to Google Sheets:", error);
     throw new Error(
-      `Failed to append row: ${
+      `Failed to append rows: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );
   }
 }
+
 
 // Insert a row at the correct chronological position based on date
 export async function insertRowChronologically(

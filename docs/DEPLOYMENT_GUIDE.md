@@ -20,6 +20,7 @@ Set these in the deployment provider's server environment. Do not commit values:
 - `GOOGLE_CLIENT_EMAIL`
 - `GOOGLE_PRIVATE_KEY` (preserve the key's newline content; the Sheets client converts escaped `\\n`)
 - `GOOGLE_PROJECT_ID` (optional in code; defaults to the current project identifier)
+- `GEMINI_API_KEY` (free tier key from https://aistudio.google.com/ for voice and AI transaction extraction)
 
 The Clerk email variables are the allow-listed user emails; each spreadsheet variable is the corresponding spreadsheet ID. Grant the service-account email access to the spreadsheets. Never expose the private key to browser code or logs.
 

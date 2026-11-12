@@ -4,6 +4,7 @@ import { useState } from "react"
 import { TransactionForm } from "@/components/transaction-form"
 import { TransactionTable } from "@/components/transaction-table"
 import { PageHeader } from "@/components/page-header"
+import { VoiceDictationDialog } from "@/components/voice-dictation-dialog"
 
 export function TransactionsPageClient({ 
   initialCompanies, 
@@ -27,6 +28,14 @@ export function TransactionsPageClient({
       <PageHeader
         title="Transactions"
         description="Record and manage all transactions"
+        actions={
+          <VoiceDictationDialog
+            companies={initialCompanies}
+            products={initialProducts}
+            isAmit={initialIsAmit}
+            onSuccess={handleRefresh}
+          />
+        }
       />
 
       <TransactionForm 

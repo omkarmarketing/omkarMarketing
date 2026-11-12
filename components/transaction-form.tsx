@@ -296,59 +296,36 @@ export function TransactionForm({
   async function savePendingTransactions() {
     if (pendingTransactions.length === 0 || isLoading) return;
     setIsLoading(true);
-    let savedCount = 0;
-    let failedCount = 0;
-    let uncertainOutcome = false;
-    let firstFailureMessage: string | null = null;
 
     try {
-      for (const transaction of pendingTransactions) {
-        let response: Response;
-        try {
-          response = await fetch("/api/transactions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(transaction.values),
-          });
-        } catch {
-          uncertainOutcome = true;
-          break;
-        }
+      const response = await fetch("/api/transactions/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactions: pendingTransactions.map((t) => t.values),
+        }),
+      });
 
-        if (!response.ok) {
-          failedCount += 1;
-          const errorData = await response.json().catch(() => null);
-          firstFailureMessage ??=
-            errorData?.error || `The server rejected an entry (${response.status}).`;
-          continue;
-        }
-
-        savedCount += 1;
-        setPendingTransactions((current) =>
-          current.filter((item) => item.id !== transaction.id),
-        );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || `Batch save failed with status ${response.status}`);
       }
 
-      if (savedCount > 0) onSuccess?.();
-      if (uncertainOutcome) {
-        toast({
-          title: `${savedCount} transaction${savedCount === 1 ? "" : "s"} confirmed`,
-          description:
-            "The connection ended before all results were confirmed. Check the transaction list before retrying the remaining entries.",
-          variant: "destructive",
-        });
-      } else if (failedCount > 0) {
-        toast({
-          title: `${savedCount} transaction${savedCount === 1 ? "" : "s"} saved`,
-          description: `${failedCount} entries remain pending. ${firstFailureMessage || "Review the entries and retry after correcting any errors."}`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: `${savedCount} transactions saved successfully`,
-          description: "All pending entries were confirmed by the server.",
-        });
-      }
+      const data = await response.json();
+      const savedCount = data.count || pendingTransactions.length;
+      setPendingTransactions([]);
+      onSuccess?.();
+
+      toast({
+        title: `${savedCount} transactions saved successfully`,
+        description: "All pending entries were confirmed by the server.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Failed to save pending transactions",
+        description: err.message || "An error occurred while saving entries.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
