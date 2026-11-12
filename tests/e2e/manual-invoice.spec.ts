@@ -10,8 +10,8 @@ test.describe('Invoice Generation Flow', () => {
     await expect(page.getByText(/Generate Brokerage Invoice/i)).toBeVisible();
 
     // Toggle Manual Mode
-    const manualCheckbox = page.locator('input[type="checkbox"]');
-    await manualCheckbox.check();
+    const manualCheckbox = page.getByRole('checkbox', { name: /manual mode/i });
+    await manualCheckbox.click();
 
     // Verify manual fields appear
     await expect(page.getByLabel(/Custom Description/i)).toBeVisible();
@@ -20,8 +20,8 @@ test.describe('Invoice Generation Flow', () => {
   });
 
   test('should validate manual mode fields', async ({ page }) => {
-    const manualCheckbox = page.locator('input[type="checkbox"]');
-    await manualCheckbox.check();
+    const manualCheckbox = page.getByRole('checkbox', { name: /manual mode/i });
+    await manualCheckbox.click();
 
     // Fill company name
     await page.fill('input[placeholder="Search company..."]', 'Test Company');

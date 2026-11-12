@@ -6,7 +6,7 @@ import {
   ensureSheet,
   sheets,
 } from "@/lib/sheets";
-import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
+import { verifyUserAccess, getSheetIdForUser, isClerkConfigured } from "@/lib/auth";
 import { getCompanySheetName } from "@/lib/sheets-helper";
 import { z } from "zod";
 import { globalCache } from "@/lib/cache";
@@ -30,6 +30,10 @@ async function getFinancialYearTransactions(sheetId: string) {
 }
 
 export async function GET() {
+  if (!isClerkConfigured()) {
+    return NextResponse.json([]);
+  }
+
   try {
     const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();

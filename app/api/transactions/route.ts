@@ -9,7 +9,7 @@ import {
   updateRow,
   deleteRow,
 } from "@/lib/sheets";
-import { verifyUserAccess, getSheetIdForUser, isAmit } from "@/lib/auth";
+import { verifyUserAccess, getSheetIdForUser, isAmit, isClerkConfigured } from "@/lib/auth";
 import {
   getCurrentFinancialYearSheetName,
   getFinancialYearSheetName,
@@ -78,6 +78,10 @@ async function getProductMap(sheetId: string, email: string) {
 
 /* -------------------- GET -------------------- */
 export async function GET() {
+  if (!isClerkConfigured()) {
+    return NextResponse.json([]);
+  }
+
   try {
     const email = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();

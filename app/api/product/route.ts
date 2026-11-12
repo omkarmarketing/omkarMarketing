@@ -6,7 +6,7 @@ import {
   ensureSheet,
   sheets,
 } from "@/lib/sheets";
-import { verifyUserAccess, getSheetIdForUser } from "@/lib/auth";
+import { verifyUserAccess, getSheetIdForUser, isClerkConfigured } from "@/lib/auth";
 import { getProductSheetName } from "@/lib/sheets-helper";
 import { z } from "zod";
 import { globalCache } from "@/lib/cache";
@@ -20,6 +20,10 @@ const productSchema = z.object({
 const CACHE_KEY_PREFIX = "products_";
 
 export async function GET() {
+  if (!isClerkConfigured()) {
+    return NextResponse.json([]);
+  }
+
   try {
     const userId = await verifyUserAccess();
     const sheetId = await getSheetIdForUser();
