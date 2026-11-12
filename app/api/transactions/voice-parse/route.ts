@@ -146,32 +146,78 @@ Return a JSON object conforming strictly to this structure:
   ]
 }`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const modelsToTry = [
+      "gemini-1.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+    ];
 
-    const geminiResponse = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: systemPrompt },
-              { text: `USER SPOKEN/TYPED TEXT TO EXTRACT:\n${transcript}` },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: "application/json",
+    let geminiResponse: Response | null = null;
+    let lastErrorText = "";
+
+    const cleanApiKey = apiKey.trim();
+
+    const requestPayload = {
+      contents: [
+        {
+          parts: [
+            { text: systemPrompt },
+            { text: `USER SPOKEN/TYPED TEXT TO EXTRACT:\n${transcript}` },
+          ],
         },
-      }),
-    });
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
+    };
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("Gemini API error:", errorText);
+    for (const model of modelsToTry) {
+      // Try with both query param and x-goog-api-key header for maximum compatibility with all key formats
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanApiKey)}`;
+      try {
+        geminiResponse = await fetch(geminiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": cleanApiKey,
+          },
+          body: JSON.stringify(requestPayload),
+        });
+
+        if (geminiResponse.ok) {
+          break;
+        }
+
+        lastErrorText = await geminiResponse.text();
+        console.warn(`Gemini model ${model} returned error:`, lastErrorText);
+
+        // If it's an API key error, don't keep trying models
+        if (geminiResponse.status === 400 || geminiResponse.status === 401 || geminiResponse.status === 403) {
+          break;
+        }
+      } catch (fetchErr) {
+        lastErrorText = String(fetchErr);
+      }
+    }
+
+    if (!geminiResponse || !geminiResponse.ok) {
+      let friendlyMessage = lastErrorText;
+      try {
+        const errorJson = JSON.parse(lastErrorText);
+        friendlyMessage =
+          errorJson.error?.message ||
+          errorJson.message ||
+          lastErrorText;
+      } catch {
+        // use raw
+      }
+
+      console.error("Gemini API call failed:", friendlyMessage);
       return NextResponse.json(
-        { error: `Gemini API error (${geminiResponse.status}): ${errorText}` },
+        {
+          error: `Google Gemini API error: ${friendlyMessage}`,
+        },
         { status: 502 },
       );
     }
