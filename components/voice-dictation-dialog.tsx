@@ -417,14 +417,14 @@ export function VoiceDictationDialog({
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto sm:p-6">
+      <DialogContent className="max-h-[92vh] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-6xl sm:p-6">
         <DialogHeader>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Sparkles className="h-5 w-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <DialogTitle className="text-xl">Voice & AI Transaction Dictation</DialogTitle>
                 <DialogDescription className="text-xs">
                   Speak or paste transactions in Gujarati, Hindi, or English. AI automatically extracts and verifies against Master data.
