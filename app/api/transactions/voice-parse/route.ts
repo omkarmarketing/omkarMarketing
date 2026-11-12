@@ -159,9 +159,8 @@ Return a JSON object conforming strictly to this structure:
 }`;
 
     const modelsToTry = [
-      "gemini-1.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-pro",
+      "gemini-3.5-flash-lite",
+      "gemini-3.6-flash",
     ];
 
     let geminiResponse: Response | null = null;

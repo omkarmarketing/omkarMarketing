@@ -77,6 +77,7 @@ export function VoiceDictationDialog({
   const [speechSupported, setSpeechSupported] = useState(true);
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
@@ -219,6 +220,7 @@ export function VoiceDictationDialog({
     }
 
     setIsExtracting(true);
+    setExtractionError(null);
     try {
       const res = await fetch("/api/transactions/voice-parse", {
         method: "POST",
@@ -266,9 +268,12 @@ export function VoiceDictationDialog({
         description: "Review and verify the details in the table below before saving.",
       });
     } catch (err: any) {
+      console.error("Extraction error details:", err);
+      const errMsg = err?.message || "An error occurred while contacting AI.";
+      setExtractionError(errMsg);
       toast({
         title: "Extraction Failed",
-        description: err.message || "An error occurred while contacting AI.",
+        description: errMsg,
         variant: "destructive",
       });
     } finally {
