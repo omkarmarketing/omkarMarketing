@@ -134,6 +134,18 @@ export function VoiceDictationDialog({
             description: "Please allow microphone permissions in your browser to use voice dictation.",
             variant: "destructive",
           });
+        } else if (event.error === "network") {
+          toast({
+            title: "Speech Network Error",
+            description: "Browser speech service could not reach Google servers. Check your connection or paste/type trade details directly.",
+            variant: "destructive",
+          });
+        } else if (event.error !== "no-speech") {
+          toast({
+            title: "Dictation Error",
+            description: `Speech recognition encountered an issue: ${event.error}`,
+            variant: "destructive",
+          });
         }
         setIsListening(false);
       };

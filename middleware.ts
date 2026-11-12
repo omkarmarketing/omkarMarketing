@@ -19,7 +19,7 @@ const withClerkProtection = clerkMiddleware(async (auth, req) => {
   response.headers.set("Referrer-Policy", "origin-when-cross-origin");
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.omkarmarketing.in https://*.clerk.accounts.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://img.clerk.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://clerk.omkarmarketing.in https://*.clerk.accounts.dev;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.omkarmarketing.in https://*.clerk.accounts.dev; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://img.clerk.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://clerk.omkarmarketing.in https://*.clerk.accounts.dev https://clerk-telemetry.com https://generativelanguage.googleapis.com;"
   );
 
   return response;
